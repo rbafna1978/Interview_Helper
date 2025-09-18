@@ -2,9 +2,9 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from faster_whisper import WhisperModel
-import tempfile, shutil, os
+import tempfile, shutil, os, json
 
-from scoring import score_answer  # <-- NEW
+from scoring import score_answer
 
 app = FastAPI(title="Local ASR (faster-whisper)")
 
@@ -30,6 +30,8 @@ async def transcribe(
     file: UploadFile = File(...),
     duration_seconds: int = Form(...),
     question: str = Form("Tell me about a challenge you faced and how you handled it."),  # default
+    question_id: str | None = Form(None),
+    history: str | None = Form(None),
 ):
     try:
         suffix = os.path.splitext(file.filename or "")[1] or ".webm"
@@ -42,7 +44,14 @@ async def transcribe(
 
         os.remove(tmp_path)
 
-        scoring = score_answer(question, transcript, duration_seconds)
+        history_payload = []
+        if history:
+            try:
+                history_payload = json.loads(history)
+            except Exception:
+                history_payload = []
+
+        scoring = score_answer(question, transcript, duration_seconds, history_payload, question_id=question_id)
 
         return JSONResponse({
             "transcript": transcript,
@@ -56,4 +65,6 @@ async def transcribe(
                 os.remove(tmp_path)
         except Exception:
             pass
+        import traceback
+        traceback.print_exc()
         return JSONResponse({"error": str(e)}, status_code=500)
