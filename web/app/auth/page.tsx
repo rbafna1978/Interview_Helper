@@ -11,17 +11,6 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const authEnabled = hasSupabase;
 
-  async function signInGoogle() {
-    if (!supabase) {
-      setErr('Hosted sign-in is not configured. Add Supabase keys to enable account login.');
-      return;
-    }
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${location.origin}/dashboard` },
-    });
-  }
-
   async function signInEmail() {
     try {
       if (!supabase) throw new Error('Hosted sign-in is not configured.');
@@ -54,14 +43,6 @@ export default function AuthPage() {
       )}
 
       <div className="mt-8 space-y-3">
-        <button
-          onClick={signInGoogle}
-          disabled={!authEnabled}
-          className="w-full rounded-full bg-sky-500 px-5 py-3 text-sm font-medium text-slate-950 shadow-lg shadow-sky-500/30 transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Continue with Google
-        </button>
-
         <div className="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-4">
           <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Email</label>
           <input
