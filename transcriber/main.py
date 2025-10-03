@@ -8,9 +8,15 @@ from scoring import score_answer
 
 app = FastAPI(title="Local ASR (faster-whisper)")
 
+allowed_origins_raw = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000"
+)
+allowed_origins = [origin.strip() for origin in allowed_origins_raw.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000","http://127.0.0.1:3000"],
+    allow_origins=allowed_origins or ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

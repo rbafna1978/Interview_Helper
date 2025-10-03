@@ -41,6 +41,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-supabase-anon-key>
 NEXT_PUBLIC_TRANSCRIBE_URL=http://127.0.0.1:8000
 ```
 
+For cross-origin calls in production, add your frontend domain to the transcriber service via the `ALLOWED_ORIGINS` environment variable (comma-separated). Defaults cover localhost only.
+
 Run both services locally:
 
 ```bash
@@ -70,6 +72,7 @@ Environment variables:
 - `WHISPER_MODEL` (default `base`)
 - `WHISPER_DEVICE` (default `cpu`)
 - `WHISPER_COMPUTE_TYPE` (default `int8`)
+- `ALLOWED_ORIGINS` – optional, comma-separated list of allowed browser origins (e.g. `https://your-app.vercel.app,http://localhost:3000`).
 
 The endpoint exposes:
 
