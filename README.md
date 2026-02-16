@@ -1,154 +1,152 @@
-# Interview Coach AI
+# 🎙️ Interview Coach AI
 
-A full-stack practice environment for behavioral interview prep. The project pairs a polished Next.js web app with a FastAPI transcription/scoring service so candidates can record answers, receive AI feedback, and keep progress locally with optional email-based login.
+Interview Coach AI is a sophisticated, full-stack practice environment designed to help candidates master behavioral and technical interviews. It provides a seamless, local-first experience for recording answers, receiving real-time AI-powered feedback, and tracking progress over time.
 
-## Apps
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)
+![React](https://img.shields.io/badge/React-19-blue?style=flat-square&logo=react)
+![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=flat-square&logo=tailwind-css)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)
 
-- **web/** – Next.js 15 front end with guest mode, in-browser recording, and attempt history powered by Prisma (SQLite) + NextAuth email OTP login.
-- **transcriber/** – FastAPI service that wraps `faster-whisper` and a lightweight scoring engine used by the browser client.
+---
 
-## Features
+## ✨ Key Features
 
-- Modern landing page and dashboard tuned for interview drills.
-- Local-first recorder with selectable audio formats and live playback.
-- AI summaries, rubric scores, and trend comparisons for each attempt.
-- Guest mode with browser storage plus local-first auth/OTP syncing.
+- **🚀 Live Transcription:** Uses the browser's Web Speech API for near-instant, local-first transcription—no expensive cloud API required.
+- **📊 AI Scoring Engine:** A custom-built TypeScript scoring engine that analyzes answers based on:
+  - **STAR Method** (Situation, Task, Action, Result)
+  - **Delivery Metrics** (WPM, filler words, hedging)
+  - **Content Quality** (Action verbs, quantification, technical depth)
+- **📈 Progress Tracking:** Detailed dashboard showing score trends, best attempts, and specific areas for improvement.
+- **🔐 Flexible Auth:** 
+  - **Guest Mode:** Start practicing immediately with local storage.
+  - **Email OTP:** Secure, passwordless login via NextAuth and Nodemailer.
+  - **History Sync:** Seamlessly claim guest attempts after signing in.
+- **🎯 Dynamic Rubrics:** Scoring adjusts automatically based on the question type (Behavioral, Technical, or System Design).
+- **🎨 Modern UI:** A clean, responsive dashboard styled with Tailwind CSS 4.0 and featuring dark mode support.
 
-## Getting Started
+---
 
-Clone the repo and install dependencies for both apps.
+## 🛠️ Tech Stack
+
+- **Frontend:** [Next.js 16](https://nextjs.org/) (App Router), [React 19](https://reactjs.org/)
+- **Styling:** [Tailwind CSS 4.0](https://tailwindcss.com/)
+- **Database:** [PostgreSQL](https://www.postgresql.org/) (via [Prisma ORM](https://www.prisma.io/))
+- **Authentication:** [NextAuth.js v5](https://authjs.dev/) (Beta)
+- **Transcription:** Browser [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)
+- **Testing:** [Playwright](https://playwright.dev/) for smoke tests
+- **Mail:** [Nodemailer](https://nodemailer.com/) for OTP delivery
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites
+
+- **Node.js:** 22.18.0 or later
+- **Database:** A PostgreSQL instance (or change provider in `schema.prisma` for local SQLite)
+- **Browser:** Chrome or Edge (for Web Speech API support)
+
+### 2. Installation
 
 ```bash
-# root
-npm install         # installs shared lint tooling (if any)
+# Clone the repository
+git clone https://github.com/your-username/interview-coach-ai.git
+cd interview-coach-ai/web
 
-# web app
-cd web
+# Install dependencies
 npm install
-
-# transcriber API
-cd ../transcriber
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
 ```
 
-Copy `web/.env.example` twice: once to `web/.env.local` (Next.js runtime) and once to `web/.env` (Prisma CLI only reads this file). Set at minimum:
+### 3. Environment Setup
 
-- `NEXTAUTH_SECRET` – 32-byte random string.
-- `DATABASE_URL` – defaults to `file:./dev.db` (SQLite).
-- `NEXT_PUBLIC_TRANSCRIBE_URL` – FastAPI URL (default `http://127.0.0.1:8000`).
-- Optional: `SEED_SECRET` if you want to protect the `/api/admin/seed` endpoint outside local dev.
-
-> Prisma CLI commands (`prisma migrate`, `prisma generate`, etc.) read only from `.env`, so make sure `DATABASE_URL` is defined there even if you keep other secrets in `.env.local`.
-
-```
-NEXT_PUBLIC_TRANSCRIBE_URL=http://127.0.0.1:8000
-```
-
-For cross-origin calls in production, add your frontend domain to the transcriber service via the `ALLOWED_ORIGINS` environment variable (comma-separated). Defaults cover localhost only. Email OTP login prints codes to the console in development; wire up SMTP via the env vars when you’re ready to send real emails.
-
-Apply database migrations + seed the question bank:
+Copy `.env.example` to `.env.local` and configure your variables:
 
 ```bash
-cd web
-npx prisma migrate dev --name init
-npm run db:seed
+cp .env.example .env.local
 ```
 
-Run both services locally:
+Key variables to set:
+- `DATABASE_URL`: Your PostgreSQL connection string.
+- `NEXTAUTH_SECRET`: A secure random string for session encryption.
+- `EMAIL_SERVER_HOST`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`: For OTP emails.
+- `EMAIL_FROM`: The sender address for OTP emails.
+
+### 4. Database Initialization
 
 ```bash
-# In /web
-npm run dev
-
-# In /transcriber (with virtualenv activated)
-uvicorn main:app --host 0.0.0.0 --port 8000
-```
-
-Visit http://localhost:3000 to practice. Use the `/auth` page to request a magic code (check the dev server console for the OTP) and sign in. Guest mode remains available if you skip auth. The dashboard shows a “Seed default questions” button if the DB is empty (dev only).
-
-### Auth Smoke Test
-
-1. Start the dev server (`npm run dev`) and watch the terminal.
-2. Open http://localhost:3000/auth, enter your email, click “Email me a code”.
-3. Copy the 6-digit code from the terminal log (`[OTP] user@example.com -> 123456 ...`).
-4. Paste the code, click “Verify & sign in”. You should land on `/dashboard` with `useSession()` reporting your user.
-5. (Optional) Click “Claim my guest history” to merge existing guest sessions via `/api/auth/claim-guest`.
-
-## Transcriber API
-
-Environment variables:
-
-- `WHISPER_MODEL` (default `base`)
-- `WHISPER_DEVICE` (default `cpu`)
-- `WHISPER_COMPUTE_TYPE` (default `int8`)
-- `ALLOWED_ORIGINS` – optional, comma-separated list of allowed browser origins (e.g. `https://your-app.vercel.app,http://localhost:3000`).
-- `ALLOWED_ORIGIN_REGEX` – optional regex if you want to allow multiple preview domains (e.g. `https://interview-helper-.*\\.vercel\\.app`).
-
-The endpoint exposes:
-
-- `GET /health` – status check.
-- `POST /transcribe` – accepts an audio file and returns transcript, language, scores, and suggestions.
-
-## Deployment Overview
-
-1. Deploy the FastAPI service (e.g. Render web service using `uvicorn main:app --host 0.0.0.0 --port 10000`). Note the public URL and set it as `NEXT_PUBLIC_TRANSCRIBE_URL` for the front end.
-2. Push this repo to GitHub.
-3. Import the project into Vercel, set the root directory to `web`, and add the three environment variables above.
-4. Trigger the build; once live, verify `/auth` email OTP sign-in, record an attempt, and confirm the FastAPI transcription is reachable from the browser.
-
-## Troubleshooting: Prisma Sandbox(Signal(6))
-
-If `npx prisma migrate dev` or `npm install` dies with `Sandbox(Signal(6))`, capture diagnostics first:
-
-```bash
-node -v
-npm -v
-npx prisma -v
-npx prisma generate --schema web/prisma/schema.prisma
-DEBUG=\"prisma:*\" npx prisma migrate dev --name init
-```
-
-Common causes + fixes:
-
-- **Prisma engines failed to download** (air-gapped, flaky cache). Fix: clear node_modules + cache, reinstall.
-- **Node 22 + Rosetta** on Apple Silicon sometimes needs Rosetta-enabled terminal. Ensure you’re on the latest Prisma.
-- **Corrupted cache** – remove `node_modules`, `package-lock.json`, and rerun `npm install`.
-- **Permission issues** – verify repo path is writable, especially for SQLite `web/dev.db`.
-
-Recovery commands:
-
-```bash
-cd web
-rm -rf node_modules package-lock.json prisma/dev.db
-npm cache verify
-npm install
+# Generate Prisma Client
 npx prisma generate
+
+# Run migrations
 npx prisma migrate dev --name init
+
+# Seed the question bank
 npm run db:seed
 ```
 
-If you still see `Sandbox(Signal(6))`, run `DEBUG="*"` with the failing command and attach the log in issues. On macOS ensure `node` isn’t the system-provided binary; use `nvm` or `fnm` to switch to Node 22.18.0 (matching CI). Finally, confirm Rosetta is installed (`softwareupdate --install-rosetta`) if you run Intel binaries on Apple Silicon.
+### 5. Run Development Server
 
-## Repo Structure
+```bash
+npm run dev
+```
+
+Visit [http://localhost:3000](http://localhost:3000) to start practicing!
+
+---
+
+## 🏗️ Architecture
+
+### Client-Side Transcription
+By utilizing the `window.SpeechRecognition` API, we achieve low-latency transcription directly in the browser. This reduces server load and ensures privacy, as audio data doesn't necessarily need to be sent to a backend for initial processing.
+
+### Server-Side Scoring
+Once a transcript is finalized, it's sent to `/api/score`. Our custom scoring engine (located in `web/lib/scoring.ts`) evaluates the text across multiple dimensions:
+- **Lexical Analysis:** Detects filler words ("um", "uh") and hedges ("maybe", "i think").
+- **Structural Analysis:** Checks for STAR components and logical flow.
+- **Contextual Alignment:** Compares the answer against the specific question's requirements and mode (e.g., Technical vs. Behavioral).
+
+---
+
+## 📂 Project Structure
 
 ```
 .
-├── README.md              # this file
-├── web/                   # Next.js app
-│   ├── app/
-│   ├── components/
-│   └── ...
-└── transcriber/           # FastAPI + faster-whisper service
-    ├── main.py
-    └── scoring.py
+├── web/                   # Main Next.js Application
+│   ├── app/               # App Router (Pages & API)
+│   ├── components/        # React Components (Recorder, Dashboard, etc.)
+│   ├── lib/               # Utilities, Scoring Engine, Prisma Client
+│   ├── prisma/            # Database Schema & Seeds
+│   └── tests/             # Playwright E2E Tests
+└── transcriber/           # [Legacy] Python Transcription Service
 ```
 
-## Contributing
+---
 
-- `npm run lint` inside `web` keeps the UI code tidy.
-- For the API, format with your preferred Python formatter and extend `requirements.txt` when introducing new libraries.
+## 🧪 Testing
 
-Happy practicing!
+Run smoke tests to ensure core functionality:
 
-codex resume 019beeba-b9c6-7121-8079-9df94b105ed2
+```bash
+cd web
+npm run test:smoke
+```
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+Happy practicing! 🚀
