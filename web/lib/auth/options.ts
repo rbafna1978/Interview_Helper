@@ -4,6 +4,10 @@ import argon2 from 'argon2';
 import { prisma } from '../prisma';
 import { verifyOtp } from './otp';
 
+function getString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
 export const authOptions: NextAuthConfig = {
   session: { strategy: 'jwt' },
   providers: [
@@ -15,8 +19,8 @@ export const authOptions: NextAuthConfig = {
         code: { label: 'Code', type: 'text' },
       },
       async authorize(credentials) {
-        const email = credentials?.email?.toLowerCase().trim();
-        const code = credentials?.code?.trim();
+        const email = getString(credentials?.email)?.toLowerCase().trim();
+        const code = getString(credentials?.code)?.trim();
         if (!email || !code) return null;
         const result = await verifyOtp(email, code);
         if (!result.valid) return null;
@@ -36,8 +40,8 @@ export const authOptions: NextAuthConfig = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        const email = credentials?.email?.toLowerCase().trim();
-        const password = credentials?.password;
+        const email = getString(credentials?.email)?.toLowerCase().trim();
+        const password = getString(credentials?.password);
         if (!email || !password) return null;
 
         const user = await prisma.user.findUnique({ where: { email } });

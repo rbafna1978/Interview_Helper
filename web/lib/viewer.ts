@@ -1,4 +1,4 @@
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { getGuestId } from '@/lib/guest';
 
 export async function getViewer() {

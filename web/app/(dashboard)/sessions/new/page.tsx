@@ -30,8 +30,9 @@ async function startSession(formData: FormData) {
   redirect(`/sessions/${session.id}/question?slug=${slug}`);
 }
 
-export default async function SessionSetupPage({ searchParams }: { searchParams: { mode?: string } }) {
-  const defaultMode = searchParams.mode ?? 'behavioral';
+export default async function SessionSetupPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+  const params = await searchParams;
+  const defaultMode = params.mode ?? 'behavioral';
 
   return (
     <PageContainer className="space-y-6">

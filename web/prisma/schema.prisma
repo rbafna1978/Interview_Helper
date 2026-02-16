@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -36,7 +36,7 @@ model Question {
   pack          String?
   difficulty    Int           @default(3)
   competencies  String        @default("[]")
-  prompt        String
+  prompt        String        @db.Text
   tags          String        @default("[]")
   timeLimitSec  Int           @default(120)
   createdAt     DateTime      @default(now())
@@ -66,11 +66,11 @@ model Attempt {
   sessionId        String
   questionId       String?
   audioPath        String?
-  transcript       String?       @default("")
-  transcriptJson   String?
-  feedbackJson     String?
+  transcript       String?       @default("") @db.Text
+  transcriptJson   String?       @db.Text
+  feedbackJson     String?       @db.Text
   scoreOverall     Int           @default(0)
-  scoreBreakdownJson String?
+  scoreBreakdownJson String?     @db.Text
   status           String        @default("PENDING")
   errorMessage     String?
   createdAt        DateTime      @default(now())
@@ -95,7 +95,7 @@ model PracticeTask {
   id        String       @id @default(uuid())
   planId    String
   title     String
-  details   String?
+  details   String?       @db.Text
   isDone    Boolean      @default(false)
   dueDate   DateTime?
   createdAt DateTime     @default(now())

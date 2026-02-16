@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '../[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { getGuestId } from '@/lib/guest';
 import { prisma } from '@/lib/prisma';
 

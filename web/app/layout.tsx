@@ -4,19 +4,7 @@ import AuthProvider from '@/components/AuthProvider';
 import { SessionProvider } from 'next-auth/react';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { ToastProvider } from '@/components/ui/Toast';
-import { IBM_Plex_Sans, Source_Serif_4 } from 'next/font/google';
 import { ThemeScript } from '@/components/theme/ThemeScript';
-
-const plex = IBM_Plex_Sans({
-  subsets: ['latin'],
-  variable: '--font-plex',
-  weight: ['400', '500', '600', '700'],
-});
-const serif = Source_Serif_4({
-  subsets: ['latin'],
-  variable: '--font-serif',
-  weight: ['400', '500', '600', '700'],
-});
 
 export const metadata: Metadata = { title: 'Interview Coach', description: 'Practice with AI feedback' };
 
@@ -26,7 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <ThemeScript />
       </head>
-      <body className={`${plex.variable} ${serif.variable} antialiased`}>
+      <body className="antialiased">
         <SessionProvider>
           <AuthProvider>
             <ToastProvider>

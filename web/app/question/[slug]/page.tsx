@@ -22,7 +22,7 @@ async function fetchQuestion(slug: string): Promise<QuestionSummary | null> {
 export default function QuestionPage() {
   const { slug } = useParams<{ slug: string }>();
   const router = useRouter();
-  const { user } = useContext(AuthCtx);
+  useContext(AuthCtx);
 
   const [attempts, setAttempts] = useState<AttemptRecord[]>([]);
   const [question, setQuestion] = useState<QuestionSummary | null>(null);

@@ -8,8 +8,8 @@ type CardProps = React.HTMLAttributes<HTMLDivElement> & {
 export function Card({ className, variant = 'default', ...props }: CardProps) {
   const base =
     variant === 'muted'
-      ? 'rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-5'
-      : 'rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5';
+      ? 'rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-5 transition hover:shadow-sm'
+      : 'rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 transition hover:shadow-sm';
 
   return <div className={cn(base, className)} {...props} />;
 }

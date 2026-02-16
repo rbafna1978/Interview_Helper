@@ -8,11 +8,48 @@ import { prisma } from '@/lib/prisma';
 import { EmptyState } from '@/components/ui/EmptyState';
 import TranscriptHighlights from '@/components/results/TranscriptHighlights';
 import { ScoreBreakdown } from '@/components/results/ScoreBreakdown';
+import type { AttemptFeedback, ScoreIssue } from '@/lib/types';
 
 type Props = {
-  params: { sessionId: string };
-  searchParams: { slug?: string; attempt?: string };
+  params: Promise<{ sessionId: string }>;
+  searchParams: Promise<{ slug?: string; attempt?: string }>;
 };
+
+type QuestionAlignment = {
+  score?: number;
+  strengths?: string[];
+  missing_topics?: string[];
+  suggestions?: string[];
+};
+
+type ExplainPayload = {
+  weights?: Record<string, number>;
+  signals?: Record<string, number | string>;
+};
+
+function normalizeIssue(value: unknown): ScoreIssue | null {
+  if (!value || typeof value !== 'object') return null;
+  const obj = value as Record<string, unknown>;
+  const severity = obj.severity;
+  const normalizedSeverity: ScoreIssue['severity'] =
+    severity === 'low' || severity === 'medium' || severity === 'high' ? severity : 'medium';
+  return {
+    type: typeof obj.type === 'string' ? obj.type : 'issue',
+    severity: normalizedSeverity,
+    evidenceSnippet:
+      typeof obj.evidenceSnippet === 'string'
+        ? obj.evidenceSnippet
+        : typeof obj.evidence === 'string'
+          ? obj.evidence
+          : '',
+    fixSuggestion:
+      typeof obj.fixSuggestion === 'string'
+        ? obj.fixSuggestion
+        : typeof obj.fix === 'string'
+          ? obj.fix
+          : 'Refine this section for clarity.',
+  };
+}
 
 function safeJson<T>(value: string | null | undefined, fallback: T): T {
   if (!value) return fallback;
@@ -23,41 +60,31 @@ function safeJson<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
-function buildRewriteSuggestion(issueType: string, evidence: string) {
-  switch (issueType) {
-    case 'missing_star':
-      return `Rewrite using STAR: Situation (1 sentence), Task (1 sentence), Action (2 sentences), Result (1 sentence). Tie it back to: "${evidence || 'your prompt'}".`;
-    case 'low_relevance':
-      return `Rewrite by echoing the prompt keywords first, then connect your example to "${evidence || 'the prompt'}".`;
-    case 'rambling':
-      return `Rewrite in 2 sentences: Outcome first, then the 1–2 actions that caused it.`;
-    case 'filler_heavy':
-      return `Rewrite with clean pauses: "First, I … Then, I … Result: …".`;
-    case 'technical_shallow':
-      return `Rewrite with one concrete technical detail (tool, algorithm, trade-off) tied to "${evidence || 'the prompt'}".`;
-    default:
-      return `Rewrite in 3 short sentences: context, action, measurable outcome.`;
-  }
+function scoreLabel(score: number): string {
+  if (score >= 80) return 'Strong';
+  if (score >= 65) return 'Good';
+  if (score >= 50) return 'Fair';
+  return 'Needs work';
 }
 
-function scaleSignal(value: number, min: number, max: number, invert = false) {
-  if (Number.isNaN(value)) return 0;
-  const clamped = Math.max(min, Math.min(value, max));
-  const raw = ((clamped - min) / (max - min)) * 100;
-  return invert ? 100 - raw : raw;
+function scoreColorStyle(score: number): string {
+  if (score >= 75) return '#16a34a';
+  if (score >= 55) return '#d97706';
+  return '#dc2626';
 }
 
 export default async function SessionResultsPage({ params, searchParams }: Props) {
-  const session = await fetchSessionById(params.sessionId);
-  if (!session) {
-    notFound();
-  }
+  const { sessionId } = await params;
+  const { slug, attempt: attemptId } = await searchParams;
+  const session = await fetchSessionById(sessionId);
+  if (!session) notFound();
+
   const question =
-    (searchParams.slug && (await prisma.question.findUnique({ where: { slug: searchParams.slug } }))) ||
+    (slug && (await prisma.question.findUnique({ where: { slug } }))) ||
     (await prisma.question.findFirst({ orderBy: { createdAt: 'asc' } }));
 
-  const attempt = searchParams.attempt
-    ? await prisma.attempt.findUnique({ where: { id: searchParams.attempt } })
+  const attempt = attemptId
+    ? await prisma.attempt.findUnique({ where: { id: attemptId } })
     : await prisma.attempt.findFirst({
         where: {
           sessionId: session.id,
@@ -66,18 +93,17 @@ export default async function SessionResultsPage({ params, searchParams }: Props
         orderBy: { createdAt: 'desc' },
       });
 
-  const feedback = safeJson<Record<string, any>>(attempt?.feedbackJson, {});
+  const feedback = safeJson<Partial<AttemptFeedback> & { explain?: ExplainPayload; question_alignment?: QuestionAlignment }>(
+    attempt?.feedbackJson,
+    {}
+  );
   const breakdown = safeJson<Record<string, number>>(attempt?.scoreBreakdownJson, {});
   const rawIssues = Array.isArray(feedback?.issues) ? feedback.issues : [];
   const issues = rawIssues
-    .map((issue: any) => ({
-      type: issue?.type ?? 'issue',
-      severity: issue?.severity ?? 'medium',
-      evidenceSnippet: issue?.evidenceSnippet ?? issue?.evidence ?? '',
-      fixSuggestion: issue?.fixSuggestion ?? issue?.fix ?? 'Refine this section for clarity.',
-      rewriteSuggestion: buildRewriteSuggestion(issue?.type ?? 'issue', issue?.evidenceSnippet ?? issue?.evidence ?? ''),
-    }))
-    .filter((issue: any) => issue.evidenceSnippet || issue.fixSuggestion);
+    .map((issue) => normalizeIssue(issue))
+    .filter((issue): issue is ScoreIssue => Boolean(issue))
+    .filter((issue) => issue.evidenceSnippet || issue.fixSuggestion);
+
   const subscores = feedback?.subscores ?? breakdown ?? {};
   const overallScore =
     typeof feedback?.overallScore === 'number'
@@ -96,17 +122,12 @@ export default async function SessionResultsPage({ params, searchParams }: Props
   ].filter((item) => typeof item.value === 'number');
 
   const explain = feedback?.explain ?? null;
-  const questionAlignment = feedback?.question_alignment ?? feedback?.questionAlignment ?? null;
+  const questionAlignment = (feedback?.question_alignment ?? null) as QuestionAlignment | null;
   const signals = explain?.signals ?? {};
   const topFixes = Array.isArray(feedback?.suggestions)
     ? feedback.suggestions.slice(0, 3)
-    : issues.slice(0, 3).map((issue: any) => issue.fixSuggestion);
-  const rewriteSuggestions = issues
-    .map((issue: any) => issue.rewriteSuggestion)
-    .filter(Boolean)
-    .slice(0, 3);
+    : issues.slice(0, 3).map((i) => i.fixSuggestion);
   const strengths = Array.isArray(feedback?.strengths) ? feedback.strengths : [];
-
   const transcript = attempt?.transcript ?? feedback?.transcript ?? '';
 
   const compareAttempts = question?.id
@@ -117,305 +138,205 @@ export default async function SessionResultsPage({ params, searchParams }: Props
       })
     : [];
 
+  const scoreColor = scoreColorStyle(overallScore);
+
   return (
     <PageContainer className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-muted)]">Session results</p>
-        <h1 className="text-3xl font-semibold text-[color:var(--text)]">Review feedback</h1>
+      <header className="space-y-1">
+        <h1 className="font-serif text-3xl font-semibold text-[color:var(--text)]">Review your answer</h1>
         <p className="text-sm text-[color:var(--text-muted)]">
-          Free • Local-first • Private. Review the rubric output and apply fixes in your next response.
+          {question?.prompt ?? 'Custom prompt'} — {new Date(attempt?.createdAt ?? Date.now()).toLocaleString()}
         </p>
       </header>
 
       {!attempt ? (
         <Card className="space-y-4">
-          <p className="text-sm text-[color:var(--text-muted)]">Status</p>
-          <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
-            No attempts found yet. Record an answer to see rubric feedback.
-          </div>
+          <p className="text-sm text-[color:var(--text-muted)]">No attempts found yet. Record an answer to see feedback.</p>
         </Card>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <Card className="space-y-3">
-            <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-muted)]">Overall score</p>
-            <div className="flex items-end gap-4">
-              <span className="text-5xl font-semibold text-[color:var(--text)]">{Math.round(overallScore)}</span>
-              <span className="text-sm text-[color:var(--text-muted)]">/ 100</span>
-            </div>
-            <p className="text-sm text-[color:var(--text-muted)]">
-              Based on structure, relevance, clarity, conciseness, delivery, and technical reasoning.
-            </p>
-            {topFixes.length > 0 && (
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text)]">
-                <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Top fixes for next time</p>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-[color:var(--text)]">
-                  {topFixes.map((fix: string, index: number) => (
-                    <li key={`${fix}-${index}`}>{fix}</li>
-                  ))}
-                </ul>
+        <>
+          {/* Score + fixes */}
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <Card className="space-y-4">
+              <div className="flex items-end gap-4">
+                <div
+                  className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white"
+                  style={{ backgroundColor: scoreColor }}
+                >
+                  {Math.round(overallScore)}
+                </div>
+                <div>
+                  <p className="text-sm text-[color:var(--text-muted)]">Overall score</p>
+                  <p className="font-serif text-xl font-semibold" style={{ color: scoreColor }}>
+                    {scoreLabel(overallScore)}
+                  </p>
+                </div>
               </div>
-            )}
-          </Card>
+              <div className="h-2 w-full rounded-full bg-[color:var(--surface-muted)]">
+                <div className="h-2 rounded-full transition-all" style={{ width: `${overallScore}%`, backgroundColor: scoreColor }} />
+              </div>
 
-          <ScoreBreakdown scores={scoreItems} />
-        </div>
-      )}
+              {topFixes.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <p className="text-sm font-medium text-[color:var(--text)]">Focus for next time</p>
+                  <ul className="space-y-2">
+                    {topFixes.map((fix: string, i: number) => (
+                      <li key={`${fix}-${i}`} className="rounded-xl bg-[color:var(--surface-muted)] px-4 py-3 text-sm text-[color:var(--text)]">
+                        {fix}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </Card>
 
-      {attempt && (
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-          <Card className="space-y-3">
-            <p className="text-sm text-[color:var(--text-muted)]">Attempt details</p>
-            <div className="space-y-2 text-sm text-[color:var(--text)]">
-              <div className="flex items-center justify-between">
-                <span className="text-[color:var(--text-muted)]">Question</span>
-                <span className="text-right text-[color:var(--text)]">{question?.prompt ?? 'Custom prompt'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[color:var(--text-muted)]">Mode</span>
-                <span className="text-right text-[color:var(--text)]">{session.mode}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[color:var(--text-muted)]">Recorded</span>
-                <span className="text-right text-[color:var(--text)]">{new Date(attempt.createdAt).toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[color:var(--text-muted)]">Status</span>
-                <span className="text-right text-[color:var(--text)]">{attempt.status}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="space-y-3">
-            <p className="text-sm text-[color:var(--text-muted)]">Coach highlights</p>
-            {strengths.length > 0 ? (
-              <ul className="list-disc space-y-2 pl-5 text-sm text-[color:var(--text)]">
-                {strengths.slice(0, 4).map((item: string, index: number) => (
-                  <li key={`${item}-${index}`}>{item}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-[color:var(--text-muted)]">
-                Keep practicing—strength highlights appear as soon as the model detects them.
-              </p>
-            )}
-          </Card>
-        </div>
-      )}
-
-      {attempt && (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-[color:var(--text-muted)]">Transcript review</p>
-            <span className="text-xs text-[color:var(--text-muted)]">{attempt.status}</span>
+            <ScoreBreakdown scores={scoreItems} />
           </div>
-          <TranscriptHighlights transcript={transcript} issues={issues} />
-        </Card>
-      )}
 
-      {attempt && rewriteSuggestions.length > 0 && (
-        <Card className="space-y-3">
-          <p className="text-sm text-[color:var(--text-muted)]">Rewrite suggestions</p>
-          <ul className="list-disc space-y-2 pl-5 text-sm text-[color:var(--text)]">
-            {rewriteSuggestions.map((rewrite: string, index: number) => (
-              <li key={`${rewrite}-${index}`}>{rewrite}</li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {attempt && questionAlignment && (
-        <Card className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-[color:var(--text-muted)]">Relevance to prompt</p>
-            <span className="text-xs text-[color:var(--text-muted)]">
-              {Math.round((questionAlignment.score ?? 0) * 100)}% match
-            </span>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Covered</p>
-              <ul className="mt-3 space-y-2">
-                {(questionAlignment.strengths ?? []).slice(0, 4).map((item: string, index: number) => (
-                  <li key={`${item}-${index}`}>{item}</li>
-                ))}
-                {(questionAlignment.strengths ?? []).length === 0 && (
-                  <li className="text-[color:var(--text-muted)]">No rubric strengths detected yet.</li>
-                )}
-              </ul>
-            </div>
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Missing</p>
-              <ul className="mt-3 space-y-2">
-                {(questionAlignment.missing_topics ?? []).slice(0, 4).map((item: string, index: number) => (
-                  <li key={`${item}-${index}`}>{item}</li>
-                ))}
-                {(questionAlignment.missing_topics ?? []).length === 0 && (
-                  <li className="text-[color:var(--text-muted)]">All key rubric topics were addressed.</li>
-                )}
-              </ul>
-            </div>
-          </div>
-          {(questionAlignment.suggestions ?? []).length > 0 && (
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Relevance fixes</p>
-              <ul className="mt-3 list-disc space-y-2 pl-5">
-                {(questionAlignment.suggestions ?? []).slice(0, 3).map((item: string, index: number) => (
-                  <li key={`${item}-${index}`}>{item}</li>
+          {/* Strengths */}
+          {strengths.length > 0 && (
+            <Card className="border-emerald-200 bg-emerald-50 space-y-3">
+              <p className="text-sm font-medium text-emerald-700">What went well</p>
+              <ul className="space-y-2">
+                {strengths.slice(0, 4).map((item: string, i: number) => (
+                  <li key={`${item}-${i}`} className="flex items-start gap-2 text-sm text-emerald-900">
+                    <span className="mt-0.5 text-emerald-500">✓</span>
+                    {item}
+                  </li>
                 ))}
               </ul>
-            </div>
+            </Card>
           )}
-        </Card>
-      )}
 
-      {attempt && (
-        <Card className="space-y-3">
-          <p className="text-sm text-[color:var(--text-muted)]">Answer quality checklist</p>
-          <div className="grid gap-3 text-sm text-[color:var(--text)] md:grid-cols-2">
-            {[
-              { label: 'STAR structure present', ok: (signals.starCoverage ?? 0) >= 3 },
-              { label: 'Clear result or impact', ok: (signals.resultStrength ?? 0) >= 0.55 },
-              { label: 'Low filler rate', ok: (signals.fillerRate ?? 0) <= 2.5 },
-              { label: 'Balanced pace', ok: (signals.wpm ?? 0) >= 110 && (signals.wpm ?? 0) <= 175 },
-              { label: 'Concise sentences', ok: (signals.avgSentenceLength ?? 0) <= 22 },
-              { label: 'Low hedge rate', ok: (signals.hedgeRate ?? 0) <= 2.0 },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center justify-between rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2">
-                <span>{item.label}</span>
-                <span className={`text-xs uppercase tracking-[0.3em] ${item.ok ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {item.ok ? 'Pass' : 'Fix'}
+          {/* Transcript */}
+          <Card className="space-y-3">
+            <p className="text-sm font-medium text-[color:var(--text)]">Transcript review</p>
+            <TranscriptHighlights transcript={transcript} issues={issues} />
+          </Card>
+
+          {/* Relevance to prompt */}
+          {questionAlignment && (
+            <Card className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-[color:var(--text)]">Relevance to prompt</p>
+                <span className="rounded-full bg-[color:var(--surface-muted)] px-3 py-1 text-xs text-[color:var(--text-muted)]">
+                  {Math.round((questionAlignment.score ?? 0) * 100)}% match
                 </span>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm">
+                  <p className="mb-2 font-medium text-emerald-700">Covered</p>
+                  <ul className="space-y-1">
+                    {(questionAlignment.strengths ?? []).slice(0, 4).map((item: string, i: number) => (
+                      <li key={`${item}-${i}`} className="text-[color:var(--text)]">{item}</li>
+                    ))}
+                    {(questionAlignment.strengths ?? []).length === 0 && (
+                      <li className="text-[color:var(--text-muted)]">No rubric strengths detected yet.</li>
+                    )}
+                  </ul>
+                </div>
+                <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm">
+                  <p className="mb-2 font-medium text-rose-700">Missing</p>
+                  <ul className="space-y-1">
+                    {(questionAlignment.missing_topics ?? []).slice(0, 4).map((item: string, i: number) => (
+                      <li key={`${item}-${i}`} className="text-[color:var(--text)]">{item}</li>
+                    ))}
+                    {(questionAlignment.missing_topics ?? []).length === 0 && (
+                      <li className="text-[color:var(--text-muted)]">All key topics were addressed.</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </Card>
+          )}
 
-      {attempt && explain && (
-        <Card className="space-y-3">
-          <p className="text-sm text-[color:var(--text-muted)]">Explain my score</p>
-          <div className="grid gap-3 text-xs text-[color:var(--text-muted)] md:grid-cols-2">
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Weights</p>
-              <ul className="mt-3 space-y-2">
-                {Object.entries(explain.weights ?? {}).map(([key, value]) => (
-                  <li key={key} className="flex items-center justify-between">
-                    <span className="capitalize">{key}</span>
-                    <span className="font-mono text-[color:var(--text)]">{value}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* Answer quality checklist */}
+          <Card className="space-y-3">
+            <p className="text-sm font-medium text-[color:var(--text)]">Answer quality checklist</p>
+            <div className="grid gap-2 text-sm text-[color:var(--text)] md:grid-cols-2">
+              {[
+                { label: 'STAR structure present', ok: (signals.starCoverage ?? 0) >= 3 },
+                { label: 'Clear result or impact', ok: (signals.resultStrength ?? 0) >= 0.55 },
+                { label: 'Low filler rate', ok: (signals.fillerRate ?? 0) <= 2.5 },
+                { label: 'Balanced pace', ok: (signals.wpm ?? 0) >= 110 && (signals.wpm ?? 0) <= 175 },
+                { label: 'Concise sentences', ok: (signals.avgSentenceLength ?? 0) <= 22 },
+                { label: 'Low hedge rate', ok: (signals.hedgeRate ?? 0) <= 2.0 },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] px-3 py-2.5">
+                  <span>{item.label}</span>
+                  <span className={`text-xs font-medium ${item.ok ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {item.ok ? 'Pass' : 'Fix'}
+                  </span>
+                </div>
+              ))}
             </div>
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Signals</p>
-              <ul className="mt-3 space-y-2">
-                {Object.entries(explain.signals ?? {}).map(([key, value]) => (
-                  <li key={key} className="flex items-center justify-between">
-                    <span className="capitalize">{key.replace(/_/g, ' ')}</span>
-                    <span className="font-mono text-[color:var(--text)]">{typeof value === 'number' ? value.toFixed(2) : value}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </Card>
-      )}
+          </Card>
 
-      {attempt && explain && (
-        <Card className="space-y-3">
-          <p className="text-sm text-[color:var(--text-muted)]">Signal dashboard</p>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-xs text-[color:var(--text-muted)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">STAR coverage</p>
-              <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">{Math.round((signals.starCoverage ?? 0) * 100)}%</p>
-              <div className="mt-3 h-2 w-full rounded-full bg-[color:var(--surface)]">
-                <div
-                  className="h-2 rounded-full bg-emerald-500"
-                  style={{ width: `${scaleSignal((signals.starCoverage ?? 0) * 100, 0, 100)}%` }}
-                />
+          {/* Compare attempts */}
+          {compareAttempts.length > 1 && (
+            <Card className="space-y-3">
+              <p className="text-sm font-medium text-[color:var(--text)]">Compare recent attempts</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {compareAttempts.map((entry, i) => {
+                  const s = entry.scoreOverall ?? 0;
+                  return (
+                    <div key={entry.id} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm">
+                      <p className="text-xs text-[color:var(--text-muted)]">{i === 0 ? 'Latest' : 'Previous'}</p>
+                      <p className="mt-1 font-serif text-2xl font-semibold" style={{ color: scoreColorStyle(s) }}>{s}</p>
+                      <p className="mt-1 text-xs text-[color:var(--text-muted)]">{new Date(entry.createdAt).toLocaleString()}</p>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-xs text-[color:var(--text-muted)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Result strength</p>
-              <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">{Math.round((signals.resultStrength ?? 0) * 100)}%</p>
-              <div className="mt-3 h-2 w-full rounded-full bg-[color:var(--surface)]">
-                <div
-                  className="h-2 rounded-full bg-[color:var(--accent-2)]"
-                  style={{ width: `${scaleSignal((signals.resultStrength ?? 0) * 100, 0, 100)}%` }}
-                />
-              </div>
-            </div>
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-xs text-[color:var(--text-muted)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">WPM</p>
-              <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">{Math.round(signals.wpm ?? 0)}</p>
-              <div className="mt-3 h-2 w-full rounded-full bg-[color:var(--surface)]">
-                <div
-                  className="h-2 rounded-full bg-amber-500"
-                  style={{ width: `${scaleSignal(signals.wpm ?? 0, 90, 170)}%` }}
-                />
-              </div>
-            </div>
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-xs text-[color:var(--text-muted)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Filler rate</p>
-              <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">{(signals.fillerRate ?? 0).toFixed(2)}</p>
-              <div className="mt-3 h-2 w-full rounded-full bg-[color:var(--surface)]">
-                <div
-                  className="h-2 rounded-full bg-rose-500"
-                  style={{ width: `${scaleSignal(signals.fillerRate ?? 0, 0, 6, true)}%` }}
-                />
-              </div>
-            </div>
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-xs text-[color:var(--text-muted)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Hedge rate</p>
-              <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">{(signals.hedgeRate ?? 0).toFixed(2)}</p>
-              <div className="mt-3 h-2 w-full rounded-full bg-[color:var(--surface)]">
-                <div
-                  className="h-2 rounded-full bg-rose-500"
-                  style={{ width: `${scaleSignal(signals.hedgeRate ?? 0, 0, 6, true)}%` }}
-                />
-              </div>
-            </div>
-            <div className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-xs text-[color:var(--text-muted)]">
-              <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">Sentence length</p>
-              <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">{Math.round(signals.avgSentenceLength ?? 0)}</p>
-              <div className="mt-3 h-2 w-full rounded-full bg-[color:var(--surface)]">
-                <div
-                  className="h-2 rounded-full bg-[color:var(--accent-2)]"
-                  style={{ width: `${scaleSignal(signals.avgSentenceLength ?? 0, 8, 26, true)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
+            </Card>
+          )}
 
-      {attempt && compareAttempts.length > 1 && (
-        <Card className="space-y-3">
-          <p className="text-sm text-[color:var(--text-muted)]">Compare recent attempts</p>
-          <div className="grid gap-3 md:grid-cols-2">
-            {compareAttempts.map((entry, index) => (
-              <div key={entry.id} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4 text-sm text-[color:var(--text-muted)]">
-                <p className="text-xs uppercase tracking-[0.3em] text-[color:var(--text-muted)]">
-                  {index === 0 ? 'Latest' : 'Previous'}
-                </p>
-                <p className="mt-2 text-2xl font-semibold text-[color:var(--text)]">{entry.scoreOverall ?? 0}</p>
-                <p className="mt-1 text-xs text-[color:var(--text-muted)]">{new Date(entry.createdAt).toLocaleString()}</p>
+          {/* Signal dashboard — collapsible */}
+          {explain && (
+            <details className="group">
+              <summary className="cursor-pointer list-none">
+                <Card className="flex items-center justify-between space-y-0 hover:border-[color:var(--accent)]/40">
+                  <p className="text-sm font-medium text-[color:var(--text)]">How is this scored?</p>
+                  <svg className="h-4 w-4 text-[color:var(--text-muted)] transition group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Card>
+              </summary>
+              <div className="mt-2 space-y-4 pl-1">
+                <div className="grid gap-4 md:grid-cols-3">
+                  {[
+                    { label: 'STAR coverage', value: `${Math.round((signals.starCoverage ?? 0) * 100)}%`, bar: (signals.starCoverage ?? 0) * 100, color: '#16a34a' },
+                    { label: 'Result strength', value: `${Math.round((signals.resultStrength ?? 0) * 100)}%`, bar: (signals.resultStrength ?? 0) * 100, color: 'var(--accent-2)' },
+                    { label: 'WPM', value: Math.round(signals.wpm ?? 0).toString(), bar: Math.min(100, ((signals.wpm ?? 0) / 170) * 100), color: '#d97706' },
+                    { label: 'Filler rate', value: Number(signals.fillerRate ?? 0).toFixed(2), bar: Math.max(0, 100 - ((Number(signals.fillerRate ?? 0) / 6) * 100)), color: '#dc2626' },
+                    { label: 'Hedge rate', value: Number(signals.hedgeRate ?? 0).toFixed(2), bar: Math.max(0, 100 - ((Number(signals.hedgeRate ?? 0) / 6) * 100)), color: '#dc2626' },
+                    { label: 'Avg sentence length', value: Math.round(Number(signals.avgSentenceLength ?? 0)).toString(), bar: Math.max(0, 100 - Math.max(0, ((Number(signals.avgSentenceLength) - 8) / 18) * 100)), color: 'var(--accent-2)' },
+                  ].map((sig) => (
+                    <div key={sig.label} className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-muted)] p-4">
+                      <p className="text-xs text-[color:var(--text-muted)]">{sig.label}</p>
+                      <p className="mt-1 font-serif text-xl font-semibold text-[color:var(--text)]">{sig.value}</p>
+                      <div className="mt-2 h-1.5 w-full rounded-full bg-[color:var(--surface)]">
+                        <div className="h-1.5 rounded-full" style={{ width: `${Math.max(0, Math.min(100, sig.bar))}%`, backgroundColor: sig.color }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </Card>
+            </details>
+          )}
+        </>
       )}
 
       <EmptyState
         title="Next steps"
-        description="Try another question or end the session to review your dashboard."
+        description="Try another question or return to your dashboard."
         action={
           <div className="flex gap-3">
             <Button asChild variant="secondary">
               <Link href={`/sessions/${session.id}/question${question ? `?slug=${question.slug}` : ''}`}>Next question</Link>
             </Button>
             <Button asChild>
-              <Link href="/dashboard">End session</Link>
+              <Link href="/dashboard">Back to dashboard</Link>
             </Button>
           </div>
         }

@@ -8,17 +8,19 @@ import { prisma } from '@/lib/prisma';
 import SessionRecorderPanel from '@/components/session/SessionRecorderPanel';
 
 type Props = {
-  params: { sessionId: string };
-  searchParams: { slug?: string };
+  params: Promise<{ sessionId: string }>;
+  searchParams: Promise<{ slug?: string }>;
 };
 
 export default async function SessionQuestionPage({ params, searchParams }: Props) {
-  const session = await fetchSessionById(params.sessionId);
+  const { sessionId } = await params;
+  const { slug: questionSlug } = await searchParams;
+  const session = await fetchSessionById(sessionId);
   if (!session) {
     notFound();
   }
   const question =
-    (searchParams.slug && (await prisma.question.findUnique({ where: { slug: searchParams.slug } }))) ||
+    (questionSlug && (await prisma.question.findUnique({ where: { slug: questionSlug } }))) ||
     (await prisma.question.findFirst({
       where: { mode: session.mode },
       orderBy: { createdAt: 'asc' },
@@ -42,7 +44,7 @@ export default async function SessionQuestionPage({ params, searchParams }: Prop
   return (
     <PageContainer className="space-y-6">
       <header className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-muted)]">Session #{params.sessionId.slice(0, 6)}</p>
+        <p className="text-xs uppercase tracking-[0.4em] text-[color:var(--text-muted)]">Session #{sessionId.slice(0, 6)}</p>
         <h1 className="text-3xl font-semibold text-[color:var(--text)]">{question.prompt}</h1>
         <p className="text-sm text-[color:var(--text-muted)]">
           Mode: {session.mode} · Suggested time {question.timeLimitSec} seconds

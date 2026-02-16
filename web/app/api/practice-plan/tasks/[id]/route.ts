@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/app/api/auth/[...nextauth]/route';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) {
@@ -11,7 +12,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const payload = (await request.json()) as { isDone?: boolean };
   const task = await prisma.practiceTask.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: { plan: true },
   });
   if (!task || task.plan.userId !== userId) {
@@ -19,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const updated = await prisma.practiceTask.update({
-    where: { id: params.id },
+    where: { id },
     data: { isDone: Boolean(payload.isDone) },
   });
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import type { Question } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 function parseList(value: string | null | undefined) {
@@ -11,7 +12,7 @@ function parseList(value: string | null | undefined) {
   }
 }
 
-function mapQuestion(question: any) {
+function mapQuestion(question: Question) {
   return {
     id: question.id,
     slug: question.slug,

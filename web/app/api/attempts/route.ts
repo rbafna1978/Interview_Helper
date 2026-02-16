@@ -18,6 +18,23 @@ type AttemptPayload = {
   questionAlignment?: unknown;
 };
 
+type IssueLike = {
+  fixSuggestion: string;
+  evidenceSnippet: string | null;
+};
+
+function toIssueLike(value: unknown): IssueLike | null {
+  if (!value || typeof value !== 'object') return null;
+  const obj = value as Record<string, unknown>;
+  return {
+    fixSuggestion:
+      typeof obj.fixSuggestion === 'string' && obj.fixSuggestion.trim()
+        ? obj.fixSuggestion
+        : 'Refine your interview structure',
+    evidenceSnippet: typeof obj.evidenceSnippet === 'string' && obj.evidenceSnippet.trim() ? obj.evidenceSnippet : null,
+  };
+}
+
 export async function POST(request: Request) {
   try {
     const payload = (await request.json()) as AttemptPayload;
@@ -74,7 +91,9 @@ export async function POST(request: Request) {
         include: { tasks: true },
       });
       if (!existingPlan) {
-        const weaknesses = Array.isArray(payload.issues) ? payload.issues.slice(0, 3) : [];
+        const weaknesses = Array.isArray(payload.issues)
+          ? payload.issues.map((issue) => toIssueLike(issue)).filter((issue): issue is IssueLike => Boolean(issue)).slice(0, 3)
+          : [];
         const startDate = new Date();
         const endDate = new Date(startDate);
         endDate.setDate(startDate.getDate() + 7);
@@ -87,9 +106,9 @@ export async function POST(request: Request) {
           { title: 'Time-box the answer', details: 'Aim for 2 minutes max and stop when you hit the result.' },
           { title: 'Repeat the same question', details: 'Do a second take with the top fixes applied.' },
         ];
-        const taskSeed = weaknesses.map((issue: any) => ({
-          title: issue.fixSuggestion || 'Refine your interview structure',
-          details: issue.evidenceSnippet || null,
+        const taskSeed = weaknesses.map((issue) => ({
+          title: issue.fixSuggestion,
+          details: issue.evidenceSnippet,
         }));
         const taskList = [...taskSeed, ...fallbackTasks].slice(0, 7);
         const plan = await prisma.practicePlan.create({
