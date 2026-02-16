@@ -34,3 +34,10 @@ pnpm-debug.log*
 .DS_Store
 *.pem
 .vercel
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+
+# Local SQLite / Prisma DBs
+*.db

@@ -1,0 +1,492 @@
+[
+  {
+    "slug": "challenge-star",
+    "prompt": "Tell me about a challenge you faced and how you handled it.",
+    "mode": "behavioral",
+    "tags": ["challenge", "ownership"],
+    "competencies": ["ownership", "problem_solving"]
+  },
+  {
+    "slug": "conflict",
+    "prompt": "Describe a time you had a conflict on a team. What did you do?",
+    "mode": "behavioral",
+    "tags": ["collaboration", "communication"],
+    "competencies": ["teamwork", "communication"]
+  },
+  {
+    "slug": "impact",
+    "prompt": "What is a project you’re proud of? What was the impact?",
+    "mode": "behavioral",
+    "tags": ["impact", "results"],
+    "competencies": ["impact", "results"]
+  },
+  {
+    "slug": "failure",
+    "prompt": "Tell me about a failure and what you learned.",
+    "mode": "behavioral",
+    "tags": ["learning", "growth"],
+    "competencies": ["learning", "resilience"]
+  },
+  {
+    "slug": "leadership-initiative",
+    "prompt": "Describe a time you took initiative on a project without being asked.",
+    "mode": "behavioral",
+    "tags": ["initiative", "ownership"],
+    "competencies": ["ownership", "bias_for_action"]
+  },
+  {
+    "slug": "prioritization-tradeoffs",
+    "prompt": "Tell me about a time you had to prioritize competing tasks.",
+    "mode": "behavioral",
+    "tags": ["prioritization", "planning"],
+    "competencies": ["prioritization", "time_management"]
+  },
+  {
+    "slug": "ambiguity",
+    "prompt": "Describe a time you worked with ambiguous requirements.",
+    "mode": "behavioral",
+    "tags": ["ambiguity", "clarity"],
+    "competencies": ["clarifying", "problem_solving"]
+  },
+  {
+    "slug": "feedback-received",
+    "prompt": "Tell me about feedback you received and how you acted on it.",
+    "mode": "behavioral",
+    "tags": ["feedback", "growth"],
+    "competencies": ["coachability", "learning"]
+  },
+  {
+    "slug": "feedback-given",
+    "prompt": "Describe a time you gave constructive feedback.",
+    "mode": "behavioral",
+    "tags": ["communication", "leadership"],
+    "competencies": ["communication", "leadership"]
+  },
+  {
+    "slug": "stakeholder-management",
+    "prompt": "Describe a time you managed a difficult stakeholder.",
+    "mode": "behavioral",
+    "tags": ["stakeholders", "influence"],
+    "competencies": ["influence", "communication"]
+  },
+  {
+    "slug": "customer-obsession",
+    "prompt": "Tell me about a time you advocated for the user or customer.",
+    "mode": "behavioral",
+    "tags": ["customer", "empathy"],
+    "competencies": ["customer_focus", "empathy"]
+  },
+  {
+    "slug": "mistake-recovery",
+    "prompt": "Describe a mistake you made and how you recovered.",
+    "mode": "behavioral",
+    "tags": ["accountability", "resilience"],
+    "competencies": ["accountability", "resilience"]
+  },
+  {
+    "slug": "conflicting-priorities",
+    "prompt": "Tell me about a time you balanced quality with a tight deadline.",
+    "mode": "behavioral",
+    "tags": ["deadline", "tradeoffs"],
+    "competencies": ["prioritization", "delivery"]
+  },
+  {
+    "slug": "mentorship",
+    "prompt": "Describe a time you mentored or helped a teammate.",
+    "mode": "behavioral",
+    "tags": ["mentorship", "teamwork"],
+    "competencies": ["teamwork", "leadership"]
+  },
+  {
+    "slug": "cross-functional",
+    "prompt": "Tell me about a time you worked cross-functionally to deliver a project.",
+    "mode": "behavioral",
+    "tags": ["cross-functional", "collaboration"],
+    "competencies": ["collaboration", "communication"]
+  },
+  {
+    "slug": "influence-without-authority",
+    "prompt": "Describe a time you influenced a decision without formal authority.",
+    "mode": "behavioral",
+    "tags": ["influence", "leadership"],
+    "competencies": ["influence", "leadership"]
+  },
+  {
+    "slug": "ownership-long-term",
+    "prompt": "Tell me about a time you took ownership of a long-term problem.",
+    "mode": "behavioral",
+    "tags": ["ownership", "persistence"],
+    "competencies": ["ownership", "execution"]
+  },
+  {
+    "slug": "learn-new-tech",
+    "prompt": "Describe a time you had to learn a new tool or technology quickly.",
+    "mode": "behavioral",
+    "tags": ["learning", "adaptability"],
+    "competencies": ["learning", "adaptability"]
+  },
+  {
+    "slug": "quality-improvement",
+    "prompt": "Tell me about a time you improved the quality or reliability of a system.",
+    "mode": "behavioral",
+    "tags": ["quality", "reliability"],
+    "competencies": ["quality", "problem_solving"]
+  },
+  {
+    "slug": "data-driven",
+    "prompt": "Describe a time you used data to make a decision.",
+    "mode": "behavioral",
+    "tags": ["data", "decision"],
+    "competencies": ["data_analysis", "decision_making"]
+  },
+  {
+    "slug": "scope-change",
+    "prompt": "Tell me about a time scope changed late in a project.",
+    "mode": "behavioral",
+    "tags": ["scope", "change"],
+    "competencies": ["adaptability", "communication"]
+  },
+  {
+    "slug": "process-improvement",
+    "prompt": "Describe a process you improved for your team.",
+    "mode": "behavioral",
+    "tags": ["process", "efficiency"],
+    "competencies": ["process_improvement", "ownership"]
+  },
+  {
+    "slug": "team-conflict-resolution",
+    "prompt": "Describe a time you helped resolve tension within a team.",
+    "mode": "behavioral",
+    "tags": ["conflict", "teamwork"],
+    "competencies": ["collaboration", "communication"]
+  },
+  {
+    "slug": "tradeoff-decision",
+    "prompt": "Tell me about a tradeoff decision you made and why.",
+    "mode": "behavioral",
+    "tags": ["tradeoffs", "decision"],
+    "competencies": ["decision_making", "judgment"]
+  },
+  {
+    "slug": "risk-management",
+    "prompt": "Describe a time you identified and mitigated risk.",
+    "mode": "behavioral",
+    "tags": ["risk", "planning"],
+    "competencies": ["risk_management", "planning"]
+  },
+  {
+    "slug": "technical-explain-api",
+    "prompt": "Explain how you would design a simple REST API for a task manager.",
+    "mode": "technical",
+    "tags": ["api", "rest"],
+    "competencies": ["communication", "system_thinking"]
+  },
+  {
+    "slug": "technical-debugging",
+    "prompt": "Walk me through how you would debug a slow API endpoint.",
+    "mode": "technical",
+    "tags": ["debugging", "performance"],
+    "competencies": ["problem_solving", "performance"]
+  },
+  {
+    "slug": "technical-scaling",
+    "prompt": "Explain how you would scale a service that is hitting CPU limits.",
+    "mode": "technical",
+    "tags": ["scaling", "performance"],
+    "competencies": ["scalability", "performance"]
+  },
+  {
+    "slug": "technical-caching",
+    "prompt": "When would you add caching, and what would you cache first?",
+    "mode": "technical",
+    "tags": ["caching", "performance"],
+    "competencies": ["system_thinking", "performance"]
+  },
+  {
+    "slug": "technical-database-choice",
+    "prompt": "How do you decide between SQL and NoSQL for a new feature?",
+    "mode": "technical",
+    "tags": ["database", "tradeoffs"],
+    "competencies": ["decision_making", "data_modeling"]
+  },
+  {
+    "slug": "technical-consistency",
+    "prompt": "Explain eventual consistency to a non-technical stakeholder.",
+    "mode": "technical",
+    "tags": ["consistency", "communication"],
+    "competencies": ["communication", "system_thinking"]
+  },
+  {
+    "slug": "technical-rate-limit",
+    "prompt": "Describe how you would implement rate limiting for an API.",
+    "mode": "technical",
+    "tags": ["rate_limit", "api"],
+    "competencies": ["system_design", "security"]
+  },
+  {
+    "slug": "technical-queue",
+    "prompt": "When would you use a queue vs. a direct synchronous call?",
+    "mode": "technical",
+    "tags": ["queue", "async"],
+    "competencies": ["system_thinking", "reliability"]
+  },
+  {
+    "slug": "technical-monitoring",
+    "prompt": "What metrics and alerts would you add to monitor a new service?",
+    "mode": "technical",
+    "tags": ["monitoring", "observability"],
+    "competencies": ["reliability", "operations"]
+  },
+  {
+    "slug": "technical-design-tradeoff",
+    "prompt": "Describe a design tradeoff between latency and cost.",
+    "mode": "technical",
+    "tags": ["tradeoffs", "cost"],
+    "competencies": ["decision_making", "performance"]
+  },
+  {
+    "slug": "technical-memory",
+    "prompt": "How would you reduce memory usage in a backend service?",
+    "mode": "technical",
+    "tags": ["performance", "memory"],
+    "competencies": ["performance", "problem_solving"]
+  },
+  {
+    "slug": "technical-testing",
+    "prompt": "How do you decide what to test for a new feature?",
+    "mode": "technical",
+    "tags": ["testing", "quality"],
+    "competencies": ["quality", "planning"]
+  },
+  {
+    "slug": "technical-logging",
+    "prompt": "What makes logs useful during an incident?",
+    "mode": "technical",
+    "tags": ["logging", "observability"],
+    "competencies": ["operations", "problem_solving"]
+  },
+  {
+    "slug": "technical-dependency",
+    "prompt": "How do you evaluate adding a new dependency to a project?",
+    "mode": "technical",
+    "tags": ["dependencies", "risk"],
+    "competencies": ["decision_making", "risk_management"]
+  },
+  {
+    "slug": "technical-bug-triage",
+    "prompt": "Describe how you would triage a production bug with limited time.",
+    "mode": "technical",
+    "tags": ["incident", "triage"],
+    "competencies": ["problem_solving", "operations"]
+  },
+  {
+    "slug": "technical-feature-rollout",
+    "prompt": "How would you roll out a risky feature safely?",
+    "mode": "technical",
+    "tags": ["rollout", "risk"],
+    "competencies": ["reliability", "planning"]
+  },
+  {
+    "slug": "technical-auth",
+    "prompt": "Explain how you would design authentication for a web app.",
+    "mode": "technical",
+    "tags": ["auth", "security"],
+    "competencies": ["security", "system_thinking"]
+  },
+  {
+    "slug": "technical-privacy",
+    "prompt": "How would you design a system to delete user data on request?",
+    "mode": "technical",
+    "tags": ["privacy", "data"],
+    "competencies": ["privacy", "system_design"]
+  },
+  {
+    "slug": "technical-tradeoff-availability",
+    "prompt": "Describe how you would improve availability without a large budget.",
+    "mode": "technical",
+    "tags": ["availability", "cost"],
+    "competencies": ["reliability", "tradeoffs"]
+  },
+  {
+    "slug": "technical-migration",
+    "prompt": "How would you plan a data migration with minimal downtime?",
+    "mode": "technical",
+    "tags": ["migration", "data"],
+    "competencies": ["planning", "reliability"]
+  },
+  {
+    "slug": "technical-api-versioning",
+    "prompt": "How do you handle API versioning without breaking clients?",
+    "mode": "technical",
+    "tags": ["api", "versioning"],
+    "competencies": ["communication", "system_thinking"]
+  },
+  {
+    "slug": "system-design-url-shortener",
+    "prompt": "Design a URL shortener.",
+    "mode": "system_design",
+    "tags": ["url_shortener", "storage"],
+    "competencies": ["system_design", "scalability"]
+  },
+  {
+    "slug": "system-design-notifications",
+    "prompt": "Design a notification service that supports email and push.",
+    "mode": "system_design",
+    "tags": ["notifications", "queue"],
+    "competencies": ["system_design", "reliability"]
+  },
+  {
+    "slug": "system-design-chat",
+    "prompt": "Design a real-time chat system.",
+    "mode": "system_design",
+    "tags": ["chat", "realtime"],
+    "competencies": ["system_design", "scalability"]
+  },
+  {
+    "slug": "system-design-feed",
+    "prompt": "Design a social media news feed.",
+    "mode": "system_design",
+    "tags": ["feed", "ranking"],
+    "competencies": ["system_design", "data_modeling"]
+  },
+  {
+    "slug": "system-design-search",
+    "prompt": "Design a search suggestion service.",
+    "mode": "system_design",
+    "tags": ["search", "autocomplete"],
+    "competencies": ["system_design", "performance"]
+  },
+  {
+    "slug": "system-design-analytics",
+    "prompt": "Design an event analytics pipeline for product usage.",
+    "mode": "system_design",
+    "tags": ["analytics", "pipeline"],
+    "competencies": ["data_systems", "system_design"]
+  },
+  {
+    "slug": "system-design-file-storage",
+    "prompt": "Design a file storage and sharing service.",
+    "mode": "system_design",
+    "tags": ["storage", "files"],
+    "competencies": ["system_design", "reliability"]
+  },
+  {
+    "slug": "system-design-metrics",
+    "prompt": "Design a metrics collection and alerting platform.",
+    "mode": "system_design",
+    "tags": ["metrics", "observability"],
+    "competencies": ["system_design", "reliability"]
+  },
+  {
+    "slug": "system-design-payment",
+    "prompt": "Design a payment processing system.",
+    "mode": "system_design",
+    "tags": ["payments", "security"],
+    "competencies": ["system_design", "security"]
+  },
+  {
+    "slug": "system-design-rate-limiter",
+    "prompt": "Design a distributed rate limiter.",
+    "mode": "system_design",
+    "tags": ["rate_limit", "distributed"],
+    "competencies": ["system_design", "scalability"]
+  },
+  {
+    "slug": "system-design-video",
+    "prompt": "Design a video streaming service.",
+    "mode": "system_design",
+    "tags": ["video", "cdn"],
+    "competencies": ["system_design", "performance"]
+  },
+  {
+    "slug": "system-design-ride-sharing",
+    "prompt": "Design a ride-sharing dispatch system.",
+    "mode": "system_design",
+    "tags": ["geo", "dispatch"],
+    "competencies": ["system_design", "scalability"]
+  },
+  {
+    "slug": "system-design-time-series",
+    "prompt": "Design a time-series database for IoT sensors.",
+    "mode": "system_design",
+    "tags": ["time-series", "data"],
+    "competencies": ["data_systems", "system_design"]
+  },
+  {
+    "slug": "system-design-logs",
+    "prompt": "Design a log aggregation service.",
+    "mode": "system_design",
+    "tags": ["logs", "observability"],
+    "competencies": ["system_design", "reliability"]
+  },
+  {
+    "slug": "system-design-calendar",
+    "prompt": "Design a shared calendar system.",
+    "mode": "system_design",
+    "tags": ["calendar", "collaboration"],
+    "competencies": ["system_design", "data_modeling"]
+  },
+  {
+    "slug": "system-design-ab-testing",
+    "prompt": "Design an A/B testing platform.",
+    "mode": "system_design",
+    "tags": ["experimentation", "analytics"],
+    "competencies": ["system_design", "data_systems"]
+  },
+  {
+    "slug": "system-design-recommendations",
+    "prompt": "Design a recommendation service for an e-commerce app.",
+    "mode": "system_design",
+    "tags": ["recommendations", "ml"],
+    "competencies": ["system_design", "data_systems"]
+  },
+  {
+    "slug": "system-design-collaboration",
+    "prompt": "Design a collaborative document editor.",
+    "mode": "system_design",
+    "tags": ["collaboration", "realtime"],
+    "competencies": ["system_design", "consistency"]
+  },
+  {
+    "slug": "system-design-feature-flags",
+    "prompt": "Design a feature flag service.",
+    "mode": "system_design",
+    "tags": ["feature_flags", "rollout"],
+    "competencies": ["system_design", "reliability"]
+  },
+  {
+    "slug": "system-design-dedup",
+    "prompt": "Design a system to deduplicate incoming events.",
+    "mode": "system_design",
+    "tags": ["dedup", "streaming"],
+    "competencies": ["system_design", "data_systems"]
+  },
+  {
+    "slug": "system-design-backup",
+    "prompt": "Design a backup and restore system for a database.",
+    "mode": "system_design",
+    "tags": ["backup", "reliability"],
+    "competencies": ["reliability", "system_design"]
+  },
+  {
+    "slug": "system-design-messaging",
+    "prompt": "Design a message queue service.",
+    "mode": "system_design",
+    "tags": ["queue", "messaging"],
+    "competencies": ["system_design", "scalability"]
+  },
+  {
+    "slug": "system-design-auth",
+    "prompt": "Design an authentication and session service.",
+    "mode": "system_design",
+    "tags": ["auth", "security"],
+    "competencies": ["system_design", "security"]
+  },
+  {
+    "slug": "system-design-ai-feedback",
+    "prompt": "Design a system that scores interview answers at scale.",
+    "mode": "system_design",
+    "tags": ["ml", "scoring"],
+    "competencies": ["system_design", "ml_systems"]
+  }
+]

@@ -1,4 +1,6 @@
 import re
+import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # ---------- Lexicons ----------
@@ -18,6 +20,23 @@ ACTION_VERBS = [
     "verified", "configured", "reconfigured", "reproduced", "benchmarked", "profiled",
     "triaged", "isolated", "documented"
 ]
+
+STOPWORDS = {
+    "a", "an", "the", "and", "or", "but", "if", "then", "this", "that", "these", "those",
+    "to", "of", "in", "on", "for", "with", "by", "from", "about", "as", "at", "into",
+    "is", "are", "was", "were", "be", "been", "being", "it", "its", "i", "we", "you",
+    "my", "our", "your", "they", "their", "them", "he", "she", "his", "her",
+    "how", "what", "why", "when", "where", "who", "which"
+}
+
+REQUIREMENTS_TERMS = ["requirement", "constraint", "goal", "scope", "assumption", "require", "must"]
+TRADEOFF_TERMS = ["trade-off", "tradeoff", "cost", "latency", "throughput", "consistency", "availability"]
+RELIABILITY_TERMS = ["retry", "timeout", "failover", "monitoring", "alert", "observability", "resilient", "fallback"]
+EDGE_TERMS = ["edge case", "failure", "error", "bug", "exception", "rollback"]
+COMPLEXITY_TERMS = ["big o", "complexity", "runtime", "memory", "space", "efficient", "performance"]
+SCALING_TERMS = ["scale", "shard", "partition", "load", "cache", "queue", "cdn", "replica"]
+DATA_TERMS = ["schema", "table", "index", "data model", "storage", "database"]
+API_TERMS = ["api", "endpoint", "request", "response", "contract", "versioning"]
 # Broader outcome / result phrases
 RESULT_CUES = [
     "as a result", "resulted in", "so that", "thereby", "which led to",
@@ -69,6 +88,23 @@ QUESTION_TEXT_TO_ID = {
     _normalize_question("What's a project you're proud of? What was the impact?"): 'impact',
     _normalize_question('Tell me about a failure and what you learned.'): 'failure',
 }
+
+QUESTION_LIBRARY_PATH = Path(__file__).with_name("question_bank.json")
+QUESTION_LIBRARY: List[Dict[str, Any]] = []
+QUESTION_BY_ID: Dict[str, Dict[str, Any]] = {}
+QUESTION_BY_TEXT: Dict[str, str] = {}
+
+try:
+    if QUESTION_LIBRARY_PATH.exists():
+        QUESTION_LIBRARY = json.loads(QUESTION_LIBRARY_PATH.read_text())
+        QUESTION_BY_ID = {q["slug"]: q for q in QUESTION_LIBRARY if q.get("slug")}
+        QUESTION_BY_TEXT = {
+            _normalize_question(q["prompt"]): q["slug"] for q in QUESTION_LIBRARY if q.get("prompt") and q.get("slug")
+        }
+except Exception:
+    QUESTION_LIBRARY = []
+    QUESTION_BY_ID = {}
+    QUESTION_BY_TEXT = {}
 
 
 QUESTION_RUBRICS: Dict[str, Dict[str, Any]] = {
@@ -237,6 +273,239 @@ def split_sentences(text: str) -> List[str]:
     return SENTENCE_SPLIT.split(text)
 
 
+def extract_keywords(text: str, limit: int = 8) -> List[str]:
+    tokens = [t.lower() for t in WORD_SPLIT.findall(text)]
+    filtered = [t for t in tokens if t not in STOPWORDS and len(t) > 2]
+    uniq: List[str] = []
+    for t in filtered:
+        if t not in uniq:
+            uniq.append(t)
+        if len(uniq) >= limit:
+            break
+    return uniq
+
+
+def keyword_signal(text: str, keywords: List[str]) -> bool:
+    t = text.lower()
+    return any(kw in t for kw in keywords)
+
+
+def build_rubric_for_question(qid: Optional[str], question_text: str) -> Optional[Dict[str, Any]]:
+    if qid and qid in QUESTION_RUBRICS:
+        return QUESTION_RUBRICS[qid]
+
+    entry = QUESTION_BY_ID.get(qid or "")
+    if not entry and question_text:
+        entry = QUESTION_BY_ID.get(QUESTION_BY_TEXT.get(_normalize_question(question_text), ""))
+    if not entry and not question_text:
+        return None
+
+    mode = (entry.get("mode") if entry else None) or ("system_design" if "design" in question_text.lower() else "behavioral")
+    prompt_keywords = extract_keywords(question_text)
+    tags = (entry.get("tags", []) if entry else []) + (entry.get("competencies", []) if entry else [])
+    tag_keywords = [t.replace("_", " ") for t in tags]
+
+    if mode == "behavioral":
+        topics = [
+            {
+                "id": "situation",
+                "label": "Set context and stakes",
+                "weight": 0.2,
+                "keywords": SITUATION_CUES + prompt_keywords,
+                "remedy": "Open with the situation or context to set stakes quickly.",
+            },
+            {
+                "id": "task",
+                "label": "Clarify your responsibility or goal",
+                "weight": 0.18,
+                "keywords": TASK_CUES + ["goal", "objective"] + prompt_keywords,
+                "remedy": "State your role and what you needed to accomplish.",
+            },
+            {
+                "id": "action",
+                "label": "Describe decisive actions you took",
+                "weight": 0.26,
+                "keywords": ACTION_CUES + ACTION_VERBS + tag_keywords,
+                "metric": {"name": "actions_density", "min": 0.014},
+                "remedy": "Emphasize the actions you personally took, not the team in general.",
+            },
+            {
+                "id": "result",
+                "label": "Close with tangible results",
+                "weight": 0.22,
+                "keywords": RESULT_CUES + ["impact", "outcome", "improved"] + tag_keywords,
+                "metric": {"name": "result_strength", "min": 0.45},
+                "remedy": "Finish with a measurable or observable outcome.",
+            },
+            {
+                "id": "reflection",
+                "label": "Share a takeaway or learning",
+                "weight": 0.14,
+                "keywords": REFLECTION_CUES,
+                "metric": {"name": "reflection", "equals": True},
+                "remedy": "Add a quick takeaway or what you'd do differently next time.",
+            },
+        ]
+        return {"title": question_text, "topics": topics}
+
+    if mode == "technical":
+        topics = [
+            {
+                "id": "problem",
+                "label": "Frame the problem and constraints",
+                "weight": 0.18,
+                "keywords": REQUIREMENTS_TERMS + prompt_keywords,
+                "metric": {"name": "has_requirements", "equals": True},
+                "remedy": "Start by clarifying requirements, constraints, and goal.",
+            },
+            {
+                "id": "approach",
+                "label": "Propose a concrete approach",
+                "weight": 0.22,
+                "keywords": ["approach", "solution", "algorithm", "design", "plan"] + tag_keywords,
+                "metric": {"name": "actions_density", "min": 0.012},
+                "remedy": "Outline a step-by-step approach or algorithm.",
+            },
+            {
+                "id": "correctness",
+                "label": "Address correctness and edge cases",
+                "weight": 0.18,
+                "keywords": EDGE_TERMS + ["test", "verify", "validate"],
+                "metric": {"name": "has_edges", "equals": True},
+                "remedy": "Mention edge cases or how you would validate correctness.",
+            },
+            {
+                "id": "complexity",
+                "label": "Discuss performance or complexity",
+                "weight": 0.2,
+                "keywords": COMPLEXITY_TERMS + SCALING_TERMS,
+                "metric": {"name": "has_complexity", "equals": True},
+                "remedy": "Call out performance considerations or complexity.",
+            },
+            {
+                "id": "tradeoffs",
+                "label": "Explain tradeoffs",
+                "weight": 0.22,
+                "keywords": TRADEOFF_TERMS,
+                "metric": {"name": "has_tradeoffs", "equals": True},
+                "remedy": "State tradeoffs (latency vs cost, consistency vs availability, etc.).",
+            },
+        ]
+        return {"title": question_text, "topics": topics}
+
+    topics = [
+        {
+            "id": "requirements",
+            "label": "Clarify requirements and constraints",
+            "weight": 0.18,
+            "keywords": REQUIREMENTS_TERMS + prompt_keywords,
+            "metric": {"name": "has_requirements", "equals": True},
+            "remedy": "Start by defining requirements, scale, and constraints.",
+        },
+        {
+            "id": "architecture",
+            "label": "Propose a high-level architecture",
+            "weight": 0.22,
+            "keywords": ["architecture", "components", "services", "pipeline"] + SCALING_TERMS + tag_keywords,
+            "remedy": "Describe the major components and data flow.",
+        },
+        {
+            "id": "data",
+            "label": "Cover data model or storage",
+            "weight": 0.18,
+            "keywords": DATA_TERMS + ["cache", "index"],
+            "metric": {"name": "has_data", "equals": True},
+            "remedy": "Call out what data you store and where.",
+        },
+        {
+            "id": "scale",
+            "label": "Discuss scaling and reliability",
+            "weight": 0.22,
+            "keywords": SCALING_TERMS + RELIABILITY_TERMS,
+            "metric": {"name": "has_scaling", "equals": True},
+            "remedy": "Explain how the design handles scale, failures, and reliability.",
+        },
+        {
+            "id": "tradeoffs",
+            "label": "Explain tradeoffs",
+            "weight": 0.2,
+            "keywords": TRADEOFF_TERMS,
+            "metric": {"name": "has_tradeoffs", "equals": True},
+            "remedy": "State the tradeoffs you would make and why.",
+        },
+        {
+            "id": "api",
+            "label": "Define API or interaction surface",
+            "weight": 0.1,
+            "keywords": API_TERMS,
+            "metric": {"name": "has_api", "equals": True},
+            "remedy": "Outline the API or user interaction surface.",
+        },
+    ]
+    return {"title": question_text, "topics": topics}
+
+
+# ---------- Configuration ----------
+CONFIG_PATH = Path(__file__).with_name("scoring_config.json")
+DEFAULT_CONFIG = {
+    "weights": {
+        "structure": 0.22,
+        "relevance": 0.2,
+        "clarity": 0.18,
+        "conciseness": 0.15,
+        "delivery": 0.15,
+        "technical": 0.1,
+    },
+    "thresholds": {
+        "max_filler_per_100": 2.5,
+        "max_avg_sentence": 32,
+        "min_tokens": 80,
+        "ideal_duration": 150,
+    },
+    "issues": {},
+}
+
+try:
+    CONFIG = json.loads(CONFIG_PATH.read_text())
+except FileNotFoundError:
+    CONFIG = DEFAULT_CONFIG
+
+WEIGHTS = CONFIG.get("weights", DEFAULT_CONFIG["weights"])
+MODE_WEIGHTS = CONFIG.get("mode_weights", {})
+THRESHOLDS = CONFIG.get("thresholds", DEFAULT_CONFIG["thresholds"])
+ISSUE_DEFS = CONFIG.get("issues", {})
+
+def clamp(value: float, lo: float = 0.0, hi: float = 1.0) -> float:
+    return max(lo, min(hi, value))
+
+
+def weight(label: str, mode: Optional[str] = None) -> float:
+    if mode and mode in MODE_WEIGHTS:
+        return float(MODE_WEIGHTS.get(mode, {}).get(label, WEIGHTS.get(label, 0)))
+    return float(WEIGHTS.get(label, 0))
+
+
+def infer_mode(question_id: Optional[str], question_text: str) -> str:
+    text = (question_id or question_text or "").lower()
+    if any(term in text for term in ["system", "architecture", "design"]):
+        return "system_design"
+    if any(term in text for term in ["technical", "code", "algorithm", "debug"]):
+        return "technical"
+    return "behavioral"
+
+
+def issue_entry(key: str, snippet: str) -> Optional[Dict[str, str]]:
+    meta = ISSUE_DEFS.get(key)
+    if not meta:
+        return None
+    return {
+        "type": meta.get("type", key),
+        "severity": meta.get("severity", "medium"),
+        "evidenceSnippet": snippet,
+        "fixSuggestion": meta.get("message", ""),
+    }
+
+
 # ---------- Detectors ----------
 def count_matches(text: str, terms: List[str]) -> List[Tuple[str, int]]:
     t = " " + _lower(text) + " "
@@ -387,9 +656,15 @@ def star_sequence_signal(text: str) -> Dict[str, Any]:
 def infer_question_id(provided_id: Optional[str], question_text: str) -> Optional[str]:
     if provided_id:
         candidate = provided_id.strip().lower()
-        if candidate in QUESTION_RUBRICS:
+        if candidate in QUESTION_RUBRICS or candidate in QUESTION_BY_ID:
             return candidate
+        return candidate
     normalized = _normalize_question(question_text)
+    if normalized in QUESTION_BY_TEXT:
+        return QUESTION_BY_TEXT[normalized]
+    for key, value in QUESTION_BY_TEXT.items():
+        if key in normalized or normalized in key:
+            return value
     if normalized in QUESTION_TEXT_TO_ID:
         return QUESTION_TEXT_TO_ID[normalized]
     for key, value in QUESTION_TEXT_TO_ID.items():
@@ -437,7 +712,8 @@ def analyze_question_alignment(
     metrics: Dict[str, Any],
 ) -> Dict[str, Any]:
     qid = infer_question_id(question_id, question_text)
-    if not qid or qid not in QUESTION_RUBRICS:
+    rubric = build_rubric_for_question(qid, question_text)
+    if not rubric:
         return {
             'question_id': qid,
             'score': 1.0,
@@ -447,8 +723,6 @@ def analyze_question_alignment(
             'strengths': [],
             'penalty': 0.0,
         }
-
-    rubric = QUESTION_RUBRICS[qid]
     transcript_lower = _lower(transcript)
     sentences = split_sentences(transcript)
 
@@ -636,16 +910,13 @@ def make_history_summary(
 
 
 # ---------- Scoring ----------
-def bounded(score: float, lo: float = 0.0, hi: float = 1.0) -> float:
-    return max(lo, min(hi, score))
-
-
 def score_answer(
     question: str,
     transcript: str,
     duration_seconds: int,
     history: Optional[List[Dict[str, Any]]] = None,
     question_id: Optional[str] = None,
+    video_metrics: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     tokens = tokenize_words(transcript)
     words = len(tokens)
@@ -671,6 +942,14 @@ def score_answer(
         'has_numbers': quant['has_numbers'],
         'reflection': reflection['has_reflection'],
         'star_coverage': star['coverage'],
+        'has_tradeoffs': keyword_signal(transcript, TRADEOFF_TERMS),
+        'has_requirements': keyword_signal(transcript, REQUIREMENTS_TERMS),
+        'has_reliability': keyword_signal(transcript, RELIABILITY_TERMS),
+        'has_edges': keyword_signal(transcript, EDGE_TERMS),
+        'has_complexity': keyword_signal(transcript, COMPLEXITY_TERMS),
+        'has_scaling': keyword_signal(transcript, SCALING_TERMS),
+        'has_data': keyword_signal(transcript, DATA_TERMS),
+        'has_api': keyword_signal(transcript, API_TERMS),
     }
     question_analysis = analyze_question_alignment(question_id, question, transcript, question_metrics)
 
@@ -681,43 +960,43 @@ def score_answer(
     last_snapshot = snapshots[0] if snapshots else {}
 
     clarity = 1.0
-    clarity -= bounded((fillers["per_100w"] - 1.8) / 6, 0, 0.7)
-    clarity -= bounded((hedges["per_100w"] - 1.2) / 5, 0, 0.5)
+    clarity -= clamp((fillers["per_100w"] - 1.8) / 6)
+    clarity -= clamp((hedges["per_100w"] - 1.2) / 5)
     if sstats["avg_len"] > 28:
         clarity -= 0.18
     if lexical["diversity"] < 0.36:
         clarity -= 0.12
     elif lexical["diversity"] > 0.52:
         clarity += 0.05
-    clarity = bounded(clarity)
+    clarity = clamp(clarity)
 
     pacing = 1.0
     if wpm < 100:
-        pacing -= bounded((100 - wpm) / 80, 0, 0.6)
+        pacing -= clamp((100 - wpm) / 80)
     elif wpm > 190:
-        pacing -= bounded((wpm - 190) / 90, 0, 0.6)
+        pacing -= clamp((wpm - 190) / 90)
     if duration_seconds < 50 or duration_seconds > 160:
         pacing -= 0.25
-    pacing = bounded(pacing)
+    pacing = clamp(pacing)
 
     struct = star["coverage"] / 4.0
     if sequence["ordered"] and star["coverage"] >= 3:
         struct += 0.15
     if reflection["has_reflection"]:
         struct += 0.05
-    struct = bounded(struct)
+    struct = clamp(struct)
 
     content = 0.0
-    content += bounded(actions["density"] / 0.018, 0, 0.45)
+    content += clamp(actions["density"] / 0.018, 0, 0.45)
     content += 0.42 * res["score"]
     content += 0.12 if quant["has_numbers"] else 0.0
     content += 0.08 if reflection["has_reflection"] else 0.0
     content -= min(0.4, vag["penalty"])
-    content = bounded(content)
+    content = clamp(content)
 
     conf = 0.92
-    conf -= bounded(hedges["per_100w"] / 7, 0, 0.6)
-    conf -= bounded((fillers["per_100w"] - 1.2) / 8, 0, 0.3)
+    conf -= clamp(hedges["per_100w"] / 7)
+    conf -= clamp((fillers["per_100w"] - 1.2) / 8)
     ir = own["i_ratio"]
     if ir < 0.45:
         conf -= 0.2
@@ -725,7 +1004,28 @@ def score_answer(
         conf -= 0.08
     if reflection["has_reflection"]:
         conf += 0.03
-    conf = bounded(conf)
+    conf = clamp(conf)
+    
+    video_issues = []
+    if video_metrics and not video_metrics.get("error"):
+        # Video confidence adjustment
+        ec = video_metrics.get("eye_contact_score", 0.0)
+        fp = video_metrics.get("face_presence_score", 0.0)
+        
+        if ec >= 0.7:
+            conf += 0.06
+        elif ec < 0.3:
+            conf -= 0.08
+            entry = issue_entry("poor_eye_contact", f"Eye contact was low ({int(ec*100)}%).")
+            if entry: video_issues.append(entry)
+            
+        if fp < 0.5:
+            conf -= 0.1
+            entry = issue_entry("face_not_visible", f"Face only visible in {int(fp*100)}% of frames.")
+            if entry: video_issues.append(entry)
+
+        # Cap confidence with video
+        conf = clamp(conf)
 
     alignment = question_analysis['score']
     topics = question_analysis.get('topics', [])
@@ -734,8 +1034,8 @@ def score_answer(
 
     sentence_count = len(sstats['sentences'])
     brevity_penalty = 0.0
-    if words < 80:
-        brevity_penalty = min(0.7, (80 - words) / 80)
+    if words < THRESHOLDS.get("min_tokens", 80):
+        brevity_penalty = min(0.7, (THRESHOLDS.get("min_tokens", 80) - words) / 80)
     brevity_factor = max(0.2, 1.0 - brevity_penalty)
     if sentence_count < 2:
         brevity_factor = max(0.2, brevity_factor * 0.5)
@@ -743,17 +1043,16 @@ def score_answer(
     penalty = question_analysis.get('penalty', 0.0)
 
     structure_factor = max(0.0, min(alignment, topic_ratio)) * brevity_factor
-    struct = bounded(struct * structure_factor)
+    struct = clamp(struct * structure_factor)
 
-    content = bounded(content * alignment * brevity_factor - penalty)
+    content = clamp(content * alignment * brevity_factor - penalty)
 
-    clarity = bounded(clarity * (0.55 + 0.45 * alignment) * max(0.3, brevity_factor))
-    conf = bounded(conf * (0.6 + 0.4 * alignment) * max(0.35, brevity_factor) - penalty * 0.5)
-    pacing = bounded(pacing * (0.5 + 0.5 * alignment) * max(0.35, brevity_factor))
+    clarity = clamp(clarity * (0.55 + 0.45 * alignment) * max(0.3, brevity_factor))
+    conf = clamp(conf * (0.6 + 0.4 * alignment) * max(0.35, brevity_factor) - penalty * 0.5)
+    pacing = clamp(pacing * (0.5 + 0.5 * alignment) * max(0.35, brevity_factor))
 
-    short_answer = words < 50 or sentence_count < 2
+    short_answer = words < THRESHOLDS.get("min_tokens", 80) or sentence_count < 2
 
-    # Adaptive nudges based on most recent attempt
     previous_fillers = last_snapshot.get("fillers_per_100w")
     previous_result = last_snapshot.get("result_strength")
     previous_wpm = last_snapshot.get("wpm")
@@ -762,34 +1061,79 @@ def score_answer(
     if previous_fillers is not None:
         delta_fillers = previous_fillers - fillers["per_100w"]
         if delta_fillers >= 0.5:
-            clarity = bounded(clarity + min(0.06, delta_fillers / 12))
+            clarity = clamp(clarity + min(0.06, delta_fillers / 12))
         elif delta_fillers <= -0.5:
             clarity -= min(0.05, abs(delta_fillers) / 10)
 
     if previous_result is not None:
         delta_result = res["score"] - previous_result
         if delta_result >= 0.15:
-            content = bounded(content + min(0.06, delta_result / 2))
+            content = clamp(content + min(0.06, delta_result / 2))
         elif delta_result <= -0.15:
             content -= min(0.06, abs(delta_result) / 2)
 
     if previous_star is not None and star["coverage"] >= 3 > previous_star:
-        struct = bounded(struct + 0.05)
+        struct = clamp(struct + 0.05)
 
     if previous_wpm is not None:
         delta_wpm = wpm - previous_wpm
         if abs(delta_wpm) > 25:
             pacing -= min(0.08, abs(delta_wpm) / 200)
 
-    scores = {
-        "structure": round(struct * 25, 1),
-        "clarity": round(clarity * 20, 1),
-        "concision": round(pacing * 10, 1),
-        "content": round(content * 30, 1),
-        "confidence": round(conf * 15, 1),
+    question_mode = infer_mode(question_id, question)
+
+    subscores_raw = {
+        "structure": struct,
+        "relevance": clamp(alignment),
+        "clarity": clarity,
+        "conciseness": clamp(1 - brevity_penalty),
+        "delivery": conf,
+        "technical": clamp(content if question_mode != "technical" else min(1.0, content + 0.1)),
     }
-    total = round(sum(scores.values()), 1)
-    scores["total"] = total
+    # Mode-specific penalties for missing critical technical content.
+    if question_mode == "technical":
+        missing = []
+        if not question_metrics.get("has_requirements"):
+            missing.append("requirements")
+        if not question_metrics.get("has_tradeoffs"):
+            missing.append("tradeoffs")
+        if not question_metrics.get("has_complexity"):
+            missing.append("complexity")
+        if not question_metrics.get("has_edges"):
+            missing.append("edge cases")
+        penalty = min(0.25, 0.05 * len(missing))
+        if penalty:
+            subscores_raw["technical"] = clamp(subscores_raw["technical"] - penalty)
+            subscores_raw["relevance"] = clamp(subscores_raw["relevance"] - penalty * 0.6)
+
+    if question_mode == "system_design":
+        missing = []
+        if not question_metrics.get("has_requirements"):
+            missing.append("requirements")
+        if not question_metrics.get("has_scaling"):
+            missing.append("scaling")
+        if not question_metrics.get("has_data"):
+            missing.append("data model")
+        if not question_metrics.get("has_tradeoffs"):
+            missing.append("tradeoffs")
+        if not question_metrics.get("has_reliability"):
+            missing.append("reliability")
+        penalty = min(0.3, 0.05 * len(missing))
+        if penalty:
+            subscores_raw["technical"] = clamp(subscores_raw["technical"] - penalty)
+            subscores_raw["relevance"] = clamp(subscores_raw["relevance"] - penalty * 0.6)
+    conciseness_raw = subscores_raw["conciseness"]
+    if duration_seconds > THRESHOLDS.get("ideal_duration", 150) * 1.4:
+        conciseness_raw = clamp(conciseness_raw - 0.2)
+        subscores_raw["conciseness"] = conciseness_raw
+
+    subscores = {k: round(v * 100, 1) for k, v in subscores_raw.items()}
+
+    weight_sum = sum(weight(k, question_mode) for k in subscores_raw)
+    overall = 0.0
+    for key, value in subscores_raw.items():
+        overall += value * weight(key, question_mode)
+    overall = round((overall / weight_sum) * 100, 1) if weight_sum else round(sum(subscores.values()) / len(subscores), 1)
 
     current_metrics = {
         "fillers": fillers,
@@ -798,88 +1142,48 @@ def score_answer(
         "star": star,
         "wpm": wpm,
     }
-    history_summary = make_history_summary(snapshots, current_metrics, total)
+    history_summary = make_history_summary(snapshots, current_metrics, overall)
 
-    focus_candidates: List[Tuple[float, str]] = []
-    focus_seen: set = set()
+    issues: List[Dict[str, str]] = []
+    if subscores_raw["structure"] < 0.6:
+        entry = issue_entry("structure_missing", sstats["sentences"][0] if sstats["sentences"] else transcript[:120])
+        if entry:
+            issues.append(entry)
+    relevance_floor = THRESHOLDS.get("relevance_floor", 0.5)
+    relevance_hard = THRESHOLDS.get("relevance_hard_floor", 0.35)
+    if subscores_raw["relevance"] < relevance_floor:
+        entry = issue_entry("low_relevance", sstats["sentences"][0] if sstats["sentences"] else transcript[:120])
+        if entry:
+            issues.append(entry)
+    if subscores_raw["relevance"] < relevance_hard:
+        entry = issue_entry("off_prompt", sstats["sentences"][0] if sstats["sentences"] else transcript[:120])
+        if entry:
+            issues.append(entry)
+    if subscores_raw["conciseness"] < 0.55:
+        entry = issue_entry("rambling", sstats["sentences"][-1] if sstats["sentences"] else transcript[-120:])
+        if entry:
+            issues.append(entry)
+    if fillers["per_100w"] > THRESHOLDS.get("max_filler_per_100", 2.5):
+        entry = issue_entry("filler_heavy", ", ".join(f"{term} ({cnt})" for term, cnt in fillers["details"][:3]))
+        if entry:
+            issues.append(entry)
+    
+    # Append video issues
+    issues.extend(video_issues)
 
-    def add_focus(priority: float, text: str) -> None:
-        if text not in focus_seen:
-            focus_candidates.append((priority, text))
-            focus_seen.add(text)
-
-    if short_answer:
-        add_focus(0.995, 'Expand your answer with concrete situation, actions, and results—this was too brief to evaluate.')
-
-    for idx, text_focus in enumerate(question_analysis['suggestions']):
-        add_focus(0.98 - idx * 0.02, text_focus)
-
-    missing_tags = [k.upper() for k, v in star['tags'].items() if not v]
-    if missing_tags:
-        add_focus(0.95, f"Cover all STAR parts; you still need {', '.join(missing_tags)} in this story.")
-    if res["score"] < 0.5:
-        add_focus(0.9, "Make the result explicit near the end with concrete impact (metrics, user outcome).")
-    if not quant["has_numbers"]:
-        add_focus(0.75, "Quantify impact (%, time saved, errors reduced, users reached).")
-    if fillers["per_100w"] > 2.2:
-        add_focus(0.7, f"Reduce fillers—heard ~{fillers['per_100w']:.1f}/100w (target ≤1.5). Practice pausing before key points.")
-    if hedges["per_100w"] > 1.6:
-        add_focus(0.65, "Trim hedging phrases (swap 'I think' for confident action verbs).")
-    if vag["penalty"] > 0:
-        vague_words = ", ".join([w for w, _ in vag["hits"][:3]])
-        add_focus(0.6, f"Be more specific; avoid vague phrasing ({vague_words}). Give concrete steps.")
-    if not reflection["has_reflection"]:
-        add_focus(0.45, "Close with a quick reflection or learning for continued growth.")
-    if lexical["diversity"] < 0.35:
-        add_focus(0.4, "Vary language—repeat fewer phrases and add unique specifics to each section.")
-    if wpm < 110 or wpm > 175:
-        add_focus(0.5, f"Adjust pacing to ~110–170 WPM (currently {int(round(wpm))} WPM).")
-
-    if history_summary["delta_total"] is not None and history_summary["delta_total"] < -2:
-        add_focus(1.0, f"Overall score dipped {abs(history_summary['delta_total']):.1f} vs last attempt—review your structure and clarity notes before re-running.")
-
-    metric_deltas = history_summary.get("metric_deltas", {})
-    delta_fillers = metric_deltas.get("fillers_per_100w")
-    if delta_fillers is not None and delta_fillers > 0.4:
-        add_focus(0.7, f"Fillers crept up by +{delta_fillers:.1f}/100w compared with last run; reset with deliberate pauses.")
-    delta_result = metric_deltas.get("result_strength")
-    if delta_result is not None and delta_result < -0.15:
-        add_focus(0.8, "Impact statement weakened versus last time—close with outcome + metrics again.")
-
-    if "result_strength" in history_summary.get("persisting_flags", []):
-        add_focus(0.9, "Across attempts the result is still vague—plan a crisp final sentence with numbers before recording.")
-    if "fillers" in history_summary.get("persisting_flags", []):
-        add_focus(0.75, "Fillers remain above target across sessions—script transitions to stay concise.")
-    if "structure" in history_summary.get("persisting_flags", []):
-        add_focus(0.85, "Structure remains a gap—outline Situation→Task→Action→Result before hitting record.")
-
-    focus_candidates.sort(key=lambda x: x[0], reverse=True)
-    suggestions = [text for _, text in focus_candidates[:6]]
+    suggestions = [issue["fixSuggestion"] for issue in issues[:3]]
 
     strengths: List[str] = []
-    def add_strength(text: str) -> None:
-        if text not in strengths:
-            strengths.append(text)
-
-    for topic_label in question_analysis['strengths']:
-        add_strength(f"{topic_label} - strong alignment with the prompt.")
-
-    if star['coverage'] >= 3:
-        add_strength("Strong storytelling arc—most STAR elements are present.")
-    if res["score"] >= 0.7:
-        add_strength("Clear impact statement with tangible results.")
+    if subscores_raw["structure"] > 0.75:
+        strengths.append("Clear STAR structure throughout the answer.")
+    if subscores_raw["relevance"] > 0.75:
+        strengths.append("Answer stays tightly aligned to the prompt.")
+    if subscores_raw["delivery"] > 0.8:
+        strengths.append("Confident delivery with minimal hedging.")
     if quant["has_numbers"]:
-        add_strength("Nice use of metrics to ground the story.")
-    if reflection["has_reflection"]:
-        add_strength("Thoughtful takeaway at the end keeps the answer growth-oriented.")
-    if fillers["per_100w"] <= 1.2:
-        add_strength(f"Very low filler rate (~{fillers['per_100w']:.1f}/100w).")
-    if history_summary["delta_total"] is not None and history_summary["delta_total"] > 0:
-        add_strength(f"Overall score up {history_summary['delta_total']:.1f} vs last run—keep that momentum.")
-    if delta_fillers is not None and delta_fillers < -0.4:
-        add_strength(f"Fillers down {abs(delta_fillers):.1f}/100w compared with last attempt—great control.")
-    if delta_result is not None and delta_result > 0.15:
-        add_strength("Impact statement sharper than last attempt.")
+        strengths.append("Impact backed by metrics.")
+    if video_metrics and video_metrics.get("eye_contact_score", 0) > 0.75:
+        strengths.append("Strong eye contact engaged the audience.")
 
     explanations = {
         "wpm": round(wpm, 1),
@@ -896,6 +1200,7 @@ def score_answer(
         "lexical": lexical,
         "reflection": reflection,
         "question_alignment": question_analysis,
+        "video_metrics": video_metrics
     }
 
     detected = {
@@ -909,8 +1214,26 @@ def score_answer(
         "question_alignment": question_analysis,
     }
 
+    explain = {
+        "weights": MODE_WEIGHTS.get(question_mode, WEIGHTS),
+        "signals": {
+            "starCoverage": star["coverage"],
+            "resultStrength": res["score"],
+            "fillerRate": fillers["per_100w"],
+            "hedgeRate": hedges["per_100w"],
+            "wpm": wpm,
+            "avgSentenceLength": sstats["avg_len"],
+        },
+    }
+
+    legacy_scores = {**subscores, "total": overall}
+
     return {
-        "scores": scores,
+        "overallScore": overall,
+        "subscores": subscores,
+        "issues": issues,
+        "explain": explain,
+        "scores": legacy_scores,
         "explanations": explanations,
         "detected": detected,
         "suggestions": suggestions,

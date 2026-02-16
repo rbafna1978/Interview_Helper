@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { supabase } from '@/lib/supabase/client';
+import { useSession } from 'next-auth/react';
 
 type SessionState = {
   user: { id: string; email?: string | null } | null;
@@ -13,31 +13,14 @@ export const AuthCtx = React.createContext<SessionState>({
 });
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<SessionState>({ user: null, status: 'loading' });
-
-  React.useEffect(() => {
-    if (!supabase) {
-      setState({ user: null, status: 'signed-out' });
-      return;
+  const { data, status } = useSession();
+  const value = React.useMemo<SessionState>(() => {
+    if (status === 'loading') {
+      return { user: null, status: 'loading' };
     }
+    const user = data?.user ? { id: data.user.id, email: data.user.email } : null;
+    return { user, status: user ? 'signed-in' : 'signed-out' };
+  }, [data, status]);
 
-    let active = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!active) return;
-      const u = data.user;
-      setState({ user: u ? { id: u.id, email: u.email } : null, status: u ? 'signed-in' : 'signed-out' });
-    });
-
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      const u = session?.user;
-      setState({ user: u ? { id: u.id, email: u.email } : null, status: u ? 'signed-in' : 'signed-out' });
-    });
-
-    return () => {
-      active = false;
-      sub?.subscription.unsubscribe();
-    };
-  }, []);
-
-  return <AuthCtx.Provider value={state}>{children}</AuthCtx.Provider>;
+  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 }

@@ -1,0 +1,81 @@
+{
+  "weights": {
+    "structure": 0.22,
+    "relevance": 0.2,
+    "clarity": 0.18,
+    "conciseness": 0.15,
+    "delivery": 0.15,
+    "technical": 0.1
+  },
+  "mode_weights": {
+    "behavioral": {
+      "structure": 0.28,
+      "relevance": 0.24,
+      "clarity": 0.18,
+      "conciseness": 0.14,
+      "delivery": 0.12,
+      "technical": 0.04
+    },
+    "technical": {
+      "structure": 0.16,
+      "relevance": 0.22,
+      "clarity": 0.16,
+      "conciseness": 0.12,
+      "delivery": 0.1,
+      "technical": 0.24
+    },
+    "system_design": {
+      "structure": 0.18,
+      "relevance": 0.22,
+      "clarity": 0.14,
+      "conciseness": 0.1,
+      "delivery": 0.08,
+      "technical": 0.28
+    }
+  },
+  "thresholds": {
+    "max_filler_per_100": 2.3,
+    "max_avg_sentence": 32,
+    "min_tokens": 90,
+    "ideal_duration": 140,
+    "relevance_floor": 0.5,
+    "relevance_hard_floor": 0.35
+  },
+  "issues": {
+    "structure_missing": {
+      "type": "structure",
+      "severity": "high",
+      "message": "Story is missing STAR components. Outline situation, task, actions, and results."
+    },
+    "low_relevance": {
+      "type": "relevance",
+      "severity": "high",
+      "message": "Answer drifts away from the question. Anchor back to the prompt."
+    },
+    "rambling": {
+      "type": "conciseness",
+      "severity": "medium",
+      "message": "Answer runs long. Tighten the narrative and trim repeated details."
+    },
+    "filler_heavy": {
+      "type": "delivery",
+      "severity": "medium",
+      "message": "High filler usage. Slow down, pause, and emphasize key points."
+    },
+    "off_prompt": {
+      "type": "relevance",
+      "severity": "high",
+      "message": "Answer is largely off-prompt. Reset and address the specific question."
+    },
+    "poor_eye_contact": {
+      "type": "delivery",
+      "severity": "medium",
+      "message": "Low eye contact detected. Try looking at the camera/screen to engage the interviewer."
+    },
+    "face_not_visible": {
+      "type": "delivery",
+      "severity": "high",
+      "message": "Face not clearly visible. Ensure good lighting and camera framing."
+    }
+  }
+}

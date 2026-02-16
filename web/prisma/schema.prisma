@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String?        @map("password_hash")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  sessions      Session[]
+  practicePlans PracticePlan[]
+}
+
+model AuthOtp {
+  id        String   @id @default(uuid())
+  email     String
+  codeHash  String   @map("code_hash")
+  expiresAt DateTime @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+model Question {
+  id            String        @id @default(uuid())
+  slug          String        @unique
+  mode          String        @default("behavioral")
+  pack          String?
+  difficulty    Int           @default(3)
+  competencies  String        @default("[]")
+  prompt        String
+  tags          String        @default("[]")
+  timeLimitSec  Int           @default(120)
+  createdAt     DateTime      @default(now())
+
+  attempts      Attempt[]
+}
+
+model Session {
+  id        String    @id @default(uuid())
+  userId    String?
+  guestId   String?   @map("guest_id")
+  mode      String    @default("behavioral")
+  pack      String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  user      User?     @relation(fields: [userId], references: [id])
+  attempts  Attempt[]
+
+  @@index([userId])
+  @@index([guestId])
+}
+
+model Attempt {
+  id               String        @id @default(uuid())
+  sessionId        String
+  questionId       String?
+  audioPath        String?
+  transcript       String?       @default("")
+  transcriptJson   String?
+  feedbackJson     String?
+  scoreOverall     Int           @default(0)
+  scoreBreakdownJson String?
+  status           String        @default("PENDING")
+  errorMessage     String?
+  createdAt        DateTime      @default(now())
+  deletedAt        DateTime?
+
+  session          Session       @relation(fields: [sessionId], references: [id])
+  question         Question?     @relation(fields: [questionId], references: [id])
+}
+
+model PracticePlan {
+  id        String        @id @default(uuid())
+  userId    String
+  startDate DateTime
+  endDate   DateTime
+  createdAt DateTime      @default(now())
+
+  user      User          @relation(fields: [userId], references: [id])
+  tasks     PracticeTask[]
+}
+
+model PracticeTask {
+  id        String       @id @default(uuid())
+  planId    String
+  title     String
+  details   String?
+  isDone    Boolean      @default(false)
+  dueDate   DateTime?
+  createdAt DateTime     @default(now())
+
+  plan      PracticePlan @relation(fields: [planId], references: [id])
+}

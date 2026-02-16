@@ -1,6 +1,33 @@
 export type ScoreValue = number | string | null;
 
+export type QuestionMode = 'behavioral' | 'technical' | 'system_design' | 'company_pack';
+
+export type QuestionSummary = {
+  id: string;
+  slug: string;
+  text: string;
+  mode: QuestionMode;
+  pack?: string | null;
+  difficulty: number;
+  tags: string[];
+  competencies: string[];
+  timeLimitSec: number;
+};
+
 export type ScoreMap = Record<string, ScoreValue>;
+
+export type ScoreIssue = {
+  type: string;
+  severity: 'low' | 'medium' | 'high';
+  evidenceSnippet: string;
+  fixSuggestion: string;
+  rewriteSuggestion?: string;
+};
+
+export type ScoreExplain = {
+  weights: Record<string, number>;
+  signals: Record<string, number>;
+};
 
 export type HistorySummary = {
   attempt_count: number;
@@ -17,6 +44,10 @@ export type AttemptFeedback = {
   transcript: string;
   duration_seconds?: number;
   scores?: ScoreMap | null;
+  overallScore?: number | null;
+  subscores?: Record<string, number> | null;
+  issues?: ScoreIssue[] | null;
+  explain?: ScoreExplain | null;
   suggestions?: string[] | null;
   explanations?: Record<string, unknown> | null;
   language?: string | null;
