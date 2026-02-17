@@ -24,7 +24,7 @@ export default function AuthPage() {
         body: JSON.stringify({ email }),
       });
       setStep('code');
-      setMessage('Check your email (or server logs in dev) for a 6-digit code.');
+      setMessage('Check your email for a 6-digit code. It expires in 10 minutes.');
     } catch {
       setError('Unable to send code. Please try again.');
     } finally {
@@ -69,16 +69,15 @@ export default function AuthPage() {
 
   return (
     <main className="mx-auto max-w-lg px-4 py-16 text-[color:var(--text)]">
-      <h1 className="text-3xl font-semibold tracking-tight">Sign in to keep your progress</h1>
+      <h1 className="text-3xl font-semibold tracking-tight">Sign in to save your progress</h1>
       <p className="mt-2 text-sm text-[color:var(--text-muted)]">
-        Email-based login keeps everything local-first. Codes expire after 10 minutes. During development, the code is
-        printed to the dev server console.
+        We&apos;ll email you a one-time code — no password needed. Codes expire after 10 minutes.
       </p>
 
       <div className="mt-8 space-y-4 rounded-3xl border border-[color:var(--border)] bg-[color:var(--surface)] p-5 shadow-[0_12px_30px_var(--shadow)]">
         {step === 'email' ? (
           <>
-            <label className="text-xs uppercase tracking-[0.25em] text-[color:var(--text-muted)]">Email</label>
+            <label className="text-sm font-medium text-[color:var(--text-muted)]">Email</label>
             <input
               type="email"
               value={email}
@@ -96,7 +95,7 @@ export default function AuthPage() {
           </>
         ) : (
           <>
-            <label className="text-xs uppercase tracking-[0.25em] text-[color:var(--text-muted)]">Enter code</label>
+            <label className="text-sm font-medium text-[color:var(--text-muted)]">Enter your 6-digit code</label>
             <input
               type="text"
               value={code}
@@ -114,7 +113,7 @@ export default function AuthPage() {
               </button>
               <button
                 onClick={requestOtp}
-                className="mt-3 rounded-full border border-[color:var(--border)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-[color:var(--text-muted)]"
+                className="mt-3 rounded-full border border-[color:var(--border)] px-4 py-2 text-xs font-semibold text-[color:var(--text-muted)] hover:text-[color:var(--text)] transition"
               >
                 Resend
               </button>

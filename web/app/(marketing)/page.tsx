@@ -39,7 +39,7 @@ export default function MarketingHome() {
           </h1>
           <p className="mx-auto max-w-xl text-xl leading-relaxed text-[color:var(--text-muted)]">
             Record a 2-minute answer, get instant feedback on structure, clarity, and delivery.
-            No Python service. No upload delays. Just you and the question.
+            Live transcription in your browser. Results in seconds.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Button asChild className="h-12 px-8 text-base">

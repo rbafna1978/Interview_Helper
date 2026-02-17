@@ -9,6 +9,9 @@ function getString(value: unknown): string | null {
 }
 
 export const authOptions: NextAuthConfig = {
+  // NextAuth v5 reads AUTH_SECRET by default; explicitly pass NEXTAUTH_SECRET so
+  // either env var name works in deployment.
+  secret: process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET,
   session: { strategy: 'jwt' },
   providers: [
     Credentials({
