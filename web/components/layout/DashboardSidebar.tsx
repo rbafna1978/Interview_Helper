@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 
 const navItems = [
   {
@@ -64,7 +63,6 @@ type NavItem = typeof navItems[number] & { disabled?: boolean };
 
 export function DashboardSidebar() {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
 
   const renderLinks = () => (
     <nav className="space-y-0.5">
@@ -74,9 +72,8 @@ export function DashboardSidebar() {
           <Link
             key={item.href}
             href={item.disabled ? '#' : item.href}
-            onClick={() => setOpen(false)}
             className={cn(
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+              'flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
               active
                 ? 'border-l-2 border-[color:var(--accent)] bg-[color:var(--surface-muted)] text-[color:var(--text)]'
                 : 'border-l-2 border-transparent text-[color:var(--text-muted)] hover:text-[color:var(--text)] hover:bg-[color:var(--surface-muted)]',
@@ -94,27 +91,6 @@ export function DashboardSidebar() {
 
   return (
     <aside className="border-r border-[color:var(--border)] bg-[color:var(--surface)] md:sticky md:top-16 md:h-[calc(100vh-64px)]">
-      {/* Mobile toggle */}
-      <div className="px-4 py-3 md:hidden">
-        <button
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--border)] text-[color:var(--text-muted)] hover:text-[color:var(--text)] transition"
-          aria-label={open ? 'Close menu' : 'Open menu'}
-        >
-          {open ? (
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
-            </svg>
-          ) : (
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
-            </svg>
-          )}
-        </button>
-        {open && <div className="mt-3">{renderLinks()}</div>}
-      </div>
-
-      {/* Desktop */}
       <div className="hidden h-full flex-col px-3 py-6 md:flex">
         <div className="mb-6 px-3">
           <p className="font-serif text-base font-semibold text-[color:var(--text)]">Interview Coach</p>
@@ -123,5 +99,37 @@ export function DashboardSidebar() {
         {renderLinks()}
       </div>
     </aside>
+  );
+}
+
+export function DashboardMobileNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface)]/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 backdrop-blur md:hidden">
+      <ul className="grid grid-cols-5 gap-1">
+        {(navItems as NavItem[]).map((item) => {
+          const active = pathname?.startsWith(item.href);
+
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.disabled ? '#' : item.href}
+                className={cn(
+                  'flex min-h-11 flex-col items-center justify-center rounded-xl px-2 py-1 text-[11px] font-medium transition',
+                  active
+                    ? 'bg-[color:var(--surface-muted)] text-[color:var(--text)]'
+                    : 'text-[color:var(--text-muted)] hover:bg-[color:var(--surface-muted)] hover:text-[color:var(--text)]',
+                  item.disabled && 'cursor-not-allowed opacity-40 hover:bg-transparent hover:text-[color:var(--text-muted)]'
+                )}
+              >
+                <span className={cn('mb-0.5', active && 'text-[color:var(--accent)]')}>{item.icon}</span>
+                <span className="truncate">{item.label.replace('Question Bank', 'Questions').replace('Practice Plan', 'Plan')}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }

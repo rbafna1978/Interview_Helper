@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { DashboardSidebar } from '@/components/layout/DashboardSidebar';
+import { DashboardMobileNav, DashboardSidebar } from '@/components/layout/DashboardSidebar';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
@@ -7,12 +7,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       <div className="hidden md:block md:w-64">
         <DashboardSidebar />
       </div>
-      <div className="flex-1 bg-[color:var(--bg)]">
-        <div className="md:hidden">
-          <DashboardSidebar />
-        </div>
+      <div className="flex-1 bg-[color:var(--bg)] pb-24 md:pb-0">
         {children}
       </div>
+      <DashboardMobileNav />
     </div>
   );
 }
