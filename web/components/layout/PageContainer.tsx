@@ -3,9 +3,12 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
-type PageContainerProps = React.HTMLAttributes<HTMLDivElement>;
+type PageContainerProps = {
+  className?: string;
+  children?: React.ReactNode;
+};
 
-export function PageContainer({ className, ...props }: PageContainerProps) {
+export function PageContainer({ className, children }: PageContainerProps) {
   const shouldReduceMotion = useReducedMotion();
 
   return (
@@ -14,7 +17,8 @@ export function PageContainer({ className, ...props }: PageContainerProps) {
       initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
       animate={shouldReduceMotion ? undefined : { opacity: 1, y: 0 }}
       transition={shouldReduceMotion ? undefined : { duration: 0.2, ease: 'easeOut' }}
-      {...props}
-    />
+    >
+      {children}
+    </motion.div>
   );
 }

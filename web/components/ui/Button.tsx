@@ -26,6 +26,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   ref
 ) {
   const shouldReduceMotion = useReducedMotion();
+  const isDisabled = Boolean(props.disabled);
   const buttonClasses = cn(
     'inline-flex min-h-11 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-[color:var(--text)] transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--bg)] disabled:cursor-not-allowed active:scale-[0.98]',
     variantClasses[variant],
@@ -40,15 +41,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   }
 
   return (
-    <motion.button
-      ref={ref}
-      type={type}
-      className={buttonClasses}
-      whileHover={shouldReduceMotion ? undefined : { y: -1 }}
-      whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-      {...props}
+    <motion.span
+      className="inline-block"
+      whileHover={shouldReduceMotion || isDisabled ? undefined : { y: -1 }}
+      whileTap={shouldReduceMotion || isDisabled ? undefined : { scale: 0.98 }}
     >
-      {children}
-    </motion.button>
+      <button ref={ref} type={type} className={buttonClasses} {...props}>
+        {children}
+      </button>
+    </motion.span>
   );
 });
