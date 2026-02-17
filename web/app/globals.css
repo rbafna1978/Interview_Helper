@@ -51,6 +51,7 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 /* Override Tailwind's font-serif to use sans-serif for a clean tech look */
