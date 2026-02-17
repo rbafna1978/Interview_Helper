@@ -21,8 +21,8 @@ const schema = z.object({
 
 const parsed = schema.safeParse({
   DATABASE_URL: emptyToUndefined(process.env.DATABASE_URL),
-  NEXTAUTH_URL: emptyToUndefined(process.env.NEXTAUTH_URL),
-  NEXTAUTH_SECRET: emptyToUndefined(process.env.NEXTAUTH_SECRET),
+  NEXTAUTH_URL: emptyToUndefined(process.env.NEXTAUTH_URL) ?? emptyToUndefined(process.env.AUTH_URL),
+  NEXTAUTH_SECRET: emptyToUndefined(process.env.NEXTAUTH_SECRET) ?? emptyToUndefined(process.env.AUTH_SECRET),
   EMAIL_FROM: emptyToUndefined(process.env.EMAIL_FROM) ?? 'Interview Coach AI <no-reply@example.com>',
   EMAIL_SERVER_HOST: emptyToUndefined(process.env.EMAIL_SERVER_HOST),
   EMAIL_SERVER_PORT: emptyToUndefined(process.env.EMAIL_SERVER_PORT),
@@ -48,10 +48,10 @@ if (smtpConfiguredCount > 0 && smtpConfiguredCount < smtpPieces.length) {
 const isProductionRuntime = process.env.NODE_ENV === 'production' && process.env.NEXT_PHASE !== 'phase-production-build';
 if (isProductionRuntime) {
   if (!data.NEXTAUTH_URL) {
-    throw new Error('NEXTAUTH_URL is required in production.');
+    console.warn('Auth URL is not set (NEXTAUTH_URL/AUTH_URL). This is usually fine on Vercel, but set it for non-Vercel deployments.');
   }
   if (data.NEXTAUTH_SECRET === 'set-a-32-byte-random-secret') {
-    throw new Error('NEXTAUTH_SECRET must be changed from the example value in production.');
+    throw new Error('Auth secret must be changed from the example value in production (NEXTAUTH_SECRET/AUTH_SECRET).');
   }
 }
 

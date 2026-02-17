@@ -21,20 +21,25 @@ function allowRequest(key: string) {
 }
 
 export async function POST(request: Request) {
-  const { email } = await request.json().catch(() => ({ email: '' }));
-  const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-  const key = `${ip}:${normalized}`;
+  try {
+    const { email } = await request.json().catch(() => ({ email: '' }));
+    const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+    const key = `${ip}:${normalized}`;
 
-  if (!normalized) {
+    if (!normalized) {
+      return NextResponse.json({ ok: true });
+    }
+    if (!allowRequest(key)) {
+      return NextResponse.json({ ok: true }, { status: 429 });
+    }
+
+    const otp = await issueOtp(normalized);
+    await sendOtpEmail(otp);
+
     return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('request-otp failed', error);
+    return NextResponse.json({ ok: false, error: 'Unable to send OTP right now.' }, { status: 500 });
   }
-  if (!allowRequest(key)) {
-    return NextResponse.json({ ok: true }, { status: 429 });
-  }
-
-  const otp = await issueOtp(normalized);
-  await sendOtpEmail(otp);
-
-  return NextResponse.json({ ok: true });
 }
